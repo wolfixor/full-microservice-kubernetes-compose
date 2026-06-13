@@ -1,0 +1,38 @@
+version: "3.8"
+
+services:
+  comment-service:
+    build:
+      context: ./comment-service
+      dockerfile: Dockerfile
+    image: registry.gitlab.shiveh.com/mapir/upstream/kibana:comment-service
+    container_name: comment-service
+    ports:
+      - "8001:8000"
+    # env_file:
+    #   - ./comment-service/.env
+    restart: unless-stopped
+
+  task-service:
+    build:
+      context: ./task-service
+      dockerfile: Dockerfile
+    image: registry.gitlab.shiveh.com/mapir/upstream/kibana:task-service
+    container_name: task-service
+    ports:
+      - "8002:8000"
+    # env_file:
+    #   - ./task-service/.env
+    restart: unless-stopped
+
+  user-service:
+    build:
+      context: ./user-service
+      dockerfile: Dockerfile
+    image: registry.gitlab.shiveh.com/mapir/upstream/kibana:user-service
+    container_name: user-service
+    ports:
+      - "8003:8000"
+    # env_file:
+    #   - ./user-service/.env
+    restart: unless-stopped

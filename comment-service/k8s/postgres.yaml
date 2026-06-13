@@ -1,0 +1,63 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: comment-service-db
+  namespace: task-api
+  labels:
+    app: comment-service-db
+spec:
+  serviceName: comment-service-db
+  replicas: 1
+  selector:
+    matchLabels:
+      app: comment-service-db
+  template:
+    metadata:
+      labels:
+        app: comment-service-db
+    spec:
+      containers:
+      - name: postgres
+        image: postgres:15-alpine
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 5432
+        env:
+        - name: POSTGRES_DB
+          value: "commentdb"
+        - name: POSTGRES_USER
+          valueFrom:
+            secretKeyRef:
+              name: postgres-credentials
+              key: POSTGRES_USER
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: postgres-credentials
+              key: POSTGRES_PASSWORD
+        volumeMounts:
+        - name: postgres-data
+          mountPath: /var/lib/postgresql/data
+  volumeClaimTemplates:
+  - metadata:
+      name: postgres-data
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      resources:
+        requests:
+          storage: 1Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: comment-service-db
+  namespace: task-api
+  labels:
+    app: comment-service-db
+spec:
+  selector:
+    app: comment-service-db
+  ports:
+  - port: 5432
+    targetPort: 5432
+  type: ClusterIP

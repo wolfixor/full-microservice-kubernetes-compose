@@ -1,0 +1,52 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: task-service
+  namespace: task-api
+  labels:
+    app: task-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: task-service
+  template:
+    metadata:
+      labels:
+        app: task-service
+    spec:
+      containers:
+      - name: task-service
+        image: registry.gitlab.shiveh.com/mapir/upstream/kibana:task-service
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8000
+        # env:
+        # - name: POSTGRES_HOST
+        #   value: "task-service-db"
+        # - name: POSTGRES_PORT
+        #   value: "5432"
+        # - name: POSTGRES_DB
+        #   value: "taskdb"
+        # - name: POSTGRES_USER
+        #   valueFrom:
+        #     secretKeyRef:
+        #       name: postgres-credentials
+        #       key: POSTGRES_USER
+        # - name: POSTGRES_PASSWORD
+        #   valueFrom:
+        #     secretKeyRef:
+        #       name: postgres-credentials
+        #       key: POSTGRES_PASSWORD
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 8000
+          initialDelaySeconds: 5
+          periodSeconds: 5

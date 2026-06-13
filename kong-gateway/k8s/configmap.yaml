@@ -1,0 +1,84 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kong-config
+  namespace: task-api
+data:
+  kong.yaml: |
+    _format_version: "3.0"
+    
+    # Define services
+    services:
+    - name: user-service
+      url: http://user-service.task-api.svc.cluster.local/
+      routes:
+      - name: user-service-route
+        paths:
+        - /users
+        - /users/
+      plugins:
+      - name: rate-limiting
+        config:
+          minute: 60
+          policy: local
+          fault_tolerant: true
+      - name: http-log
+        config:
+          http_endpoint: http://kong-gateway.task-api.svc.cluster.local:8001/
+          method: POST
+          timeout: 1000
+          keepalive: 60000
+          flush_timeout: 2
+          retry_count: 5
+    
+    - name: task-service
+      url: http://task-service.task-api.svc.cluster.local/
+      routes:
+      - name: task-service-route
+        paths:
+        - /tasks
+        - /tasks/
+      plugins:
+      - name: rate-limiting
+        config:
+          minute: 60
+          policy: local
+          fault_tolerant: true
+      - name: http-log
+        config:
+          http_endpoint: http://kong-gateway.task-api.svc.cluster.local:8001/
+          method: POST
+          timeout: 1000
+          keepalive: 60000
+          flush_timeout: 2
+          retry_count: 5
+    
+    - name: comment-service
+      url: http://comment-service.task-api.svc.cluster.local/
+      routes:
+      - name: comment-service-route
+        paths:
+        - /comments
+        - /comments/
+      plugins:
+      - name: rate-limiting
+        config:
+          minute: 60
+          policy: local
+          fault_tolerant: true
+      - name: http-log
+        config:
+          http_endpoint: http://kong-gateway.task-api.svc.cluster.local:8001/
+          method: POST
+          timeout: 1000
+          keepalive: 60000
+          flush_timeout: 2
+          retry_count: 5
+    
+    # Global plugins
+    plugins:
+    - name: correlation-id
+      config:
+        header_name: Kong-Request-ID
+        generator: uuid
+        echo_downstream: true

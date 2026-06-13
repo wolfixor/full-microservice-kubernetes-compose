@@ -1,0 +1,62 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kong-gateway
+  namespace: task-api
+  labels:
+    app: kong-gateway
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: kong-gateway
+  template:
+    metadata:
+      labels:
+        app: kong-gateway
+    spec:
+      containers:
+      - name: kong
+        image: docker.arvancloud.ir/kong:3.5
+        env:
+        - name: KONG_DATABASE
+          value: "off"
+        - name: KONG_DECLARATIVE_CONFIG
+          value: "/usr/local/kong/declarative/kong.yaml"
+        - name: KONG_PROXY_ACCESS_LOG
+          value: "/dev/stdout"
+        - name: KONG_ADMIN_ACCESS_LOG
+          value: "/dev/stdout"
+        - name: KONG_PROXY_ERROR_LOG
+          value: "/dev/stderr"
+        - name: KONG_ADMIN_ERROR_LOG
+          value: "/dev/stderr"
+        - name: KONG_ADMIN_LISTEN
+          value: "0.0.0.0:8001"
+        ports:
+        - containerPort: 8000
+          name: proxy
+          protocol: TCP
+        - containerPort: 8001
+          name: admin
+          protocol: TCP
+        volumeMounts:
+        - name: kong-config
+          mountPath: /usr/local/kong/declarative
+          readOnly: true
+        readinessProbe:
+          httpGet:
+            path: /status
+            port: admin
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        livenessProbe:
+          httpGet:
+            path: /status
+            port: admin
+          initialDelaySeconds: 15
+          periodSeconds: 20
+      volumes:
+      - name: kong-config
+        configMap:
+          name: kong-config
