@@ -30,8 +30,16 @@ Each service includes:
 - **Simple CRUD only**: No complex business logic yet
 - **No inter-service communication**: Services are independent
 - **Separate databases**: Each service has its own PostgreSQL instance
+- **Redis caching**: Cache-aside pattern with Redis for performance
 - **Independently deployable**: Each service can be deployed separately
 - **API Gateway**: Kong gateway routes external traffic to appropriate services
+
+## Caching Strategy
+- **Cache-aside pattern**: Read from Redis first, fall back to PostgreSQL
+- **Redis deployment**: Single Redis instance with separate databases per service
+- **Cache invalidation**: Automatic on update/delete operations
+- **Health checks**: Redis health included in service readiness checks
+- **Graceful degradation**: Services operate without Redis if unavailable
 
 ## Deployment Instructions
 
@@ -55,13 +63,31 @@ docker build -t comment-service .
 # Create namespace (if not exists)
 kubectl apply -f ../k8s/namespace.yaml
 
-# Create PostgreSQL secret
+# Create PostgreSQL secret (includes Redis password)
 kubectl apply -f ../k8s/secret.yaml
 
-# Deploy each service
-kubectl apply -f user-service/k8s/
-kubectl apply -f task-service/k8s/
-kubectl apply -f comment-service/k8s/
+# Deploy Redis cache
+kubectl apply -f ../k8s/redis-deployment.yaml
+
+# Deploy PostgreSQL databases
+kubectl apply -f user-service/k8s/postgres.yaml
+kubectl apply -f task-service/k8s/postgres.yaml
+kubectl apply -f comment-service/k8s/postgres.yaml
+
+# Run database migrations (IMPORTANT: Run before services)
+kubectl apply -f user-service/k8s/migration-job.yaml
+kubectl apply -f task-service/k8s/migration-job.yaml
+kubectl apply -f comment-service/k8s/migration-job.yaml
+
+# Wait for migrations to complete
+kubectl wait --for=condition=complete job/user-service-migrations -n task-api --timeout=300s
+kubectl wait --for=condition=complete job/task-service-migrations -n task-api --timeout=300s
+kubectl wait --for=condition=complete job/comment-service-migrations -n task-api --timeout=300s
+
+# Deploy services (after migrations complete)
+kubectl apply -f user-service/k8s/deployment.yaml
+kubectl apply -f task-service/k8s/deployment.yaml
+kubectl apply -f comment-service/k8s/deployment.yaml
 ```
 
 ### 3. Deploy Kong API Gateway
@@ -110,12 +136,73 @@ curl http://$KONG_IP/tasks
 curl http://$KONG_IP/comments
 ```
 
+## Redis Caching Features
+- **Cache-aside pattern**: Intelligent read-through caching
+- **Redis health monitoring**: Integrated into service readiness
+- **Database separation**: Each service uses different Redis database
+- **Cache invalidation**: Automatic on data updates
+- **Graceful degradation**: Services work without Redis
+- **Performance optimized**: 5-minute TTL with LRU eviction
+
 ## Future Evolution
-This is Phase 1 of the microservices architecture. Future phases will add:
+This is Phase 2 with Redis caching. Future phases will add:
+- Redis clustering for high availability
+- Cache warming strategies
+- Cache analytics and monitoring
 - Inter-service communication
 - Message queues (Kafka/RabbitMQ)
 - Service discovery
 - Authentication/Authorization
-- Monitoring and observability
 - Enhanced rate limiting
 - API analytics
+
+
+
+### the architecture at the end will be this:
+```
+
+
+                    Internet
+                        |
+                        |
+                   +---------+
+                   |  Kong   |
+                   | Gateway |
+                   +---------+
+                        |
+      -----------------------------------------
+      |           |            |             |
+      v           v            v             v
+
++------------+ +------------+ +------------+ +------------+
+| User       | | Task       | | Comment    | | Search     |
+| Service    | | Service    | | Service    | | Service    |
++------------+ +------------+ +------------+ +------------+
+      |              |              |             |
+      v              v              v             v
+
++------------+ +------------+ +------------+ +----------------+
+| PostgreSQL | | PostgreSQL | | PostgreSQL | | Elasticsearch  |
++------------+ +------------+ +------------+ +----------------+
+
+                     |
+                     v
+                 +---------+
+                 | Kafka   |
+                 +---------+
+                     |
+     ------------------------------------
+     |                                  |
+     v                                  v
+
++---------------+               +---------------+
+| Notification  |               | Activity      |
+| Service       |               | Service       |
++---------------+               +---------------+
+                     |
+                     v
+                  +--------+
+                  | Redis  |
+                  +--------+
+
+```

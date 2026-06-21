@@ -1,0 +1,36 @@
+# Alternative: Init Container Approach for Migrations
+# This can be added to deployment.yaml instead of using separate Jobs
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: comment-service-with-init
+  namespace: task-api
+spec:
+  template:
+    spec:
+      containers:
+      - name: comment-service
+        image: registry.gitlab.shiveh.com/mapir/upstream/kibana:comment-service
+        # ... other container config
+      initContainers:
+      - name: migrate
+        image: registry.gitlab.shiveh.com/mapir/upstream/kibana:comment-service
+        command: ["/bin/bash", "-c", "alembic upgrade head"]
+        env:
+        - name: POSTGRES_HOST
+          value: "comment-service-db"
+        - name: POSTGRES_PORT
+          value: "5432"
+        - name: POSTGRES_DB
+          value: "comment_db"
+        - name: POSTGRES_USER
+          valueFrom:
+            secretKeyRef:
+              name: postgres-credentials
+              key: POSTGRES_USER
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: postgres-credentials
+              key: POSTGRES_PASSWORD

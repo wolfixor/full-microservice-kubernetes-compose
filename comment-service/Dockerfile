@@ -16,7 +16,7 @@ RUN set -ex \
     && apt-get update
 
 # Build deps
-RUN apt-get update && apt-get install -y gcc curl \
+RUN apt-get update && apt-get install -y gcc curl netcat-openbsd postgresql-client \
     && rm -rf /var/lib/apt/lists/*
 
 # venv setup
@@ -30,6 +30,12 @@ RUN pip install --no-cache-dir -r requirements.txt -vvv
 
 # Copy app
 COPY app/ ./app/
+COPY alembic.ini ./alembic.ini
+COPY alembic/ ./alembic/
+
+# Copy entrypoint script
+COPY docker-entrypoint.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
 ENV PYTHONPATH=/app
 ENV PYTHONUNBUFFERED=1
@@ -41,6 +47,8 @@ USER appuser
 
 EXPOSE 8000
 
+# Set entrypoint
+ENTRYPOINT ["docker-entrypoint.sh"]
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
 
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \

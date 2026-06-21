@@ -1,0 +1,31 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: user-service-migrations
+  namespace: task-api
+spec:
+  template:
+    spec:
+      containers:
+      - name: migrate
+        image: registry.gitlab.shiveh.com/mapir/upstream/kibana:user-service
+        command: ["/bin/bash", "-c", "alembic upgrade head"]
+        env:
+        - name: POSTGRES_HOST
+          value: "user-service-db"
+        - name: POSTGRES_PORT
+          value: "5432"
+        - name: POSTGRES_DB
+          value: "user_db"
+        - name: POSTGRES_USER
+          valueFrom:
+            secretKeyRef:
+              name: postgres-credentials
+              key: POSTGRES_USER
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: postgres-credentials
+              key: POSTGRES_PASSWORD
+      restartPolicy: Never
+  backoffLimit: 3

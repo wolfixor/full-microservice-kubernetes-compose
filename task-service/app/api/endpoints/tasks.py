@@ -2,9 +2,14 @@
 
 from typing import List, Optional
 from datetime import datetime
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel, Field
 from enum import Enum
+
+from ...db.session import get_db
+from ...repositories.cached_task_repository import CachedTaskRepository
+from ...models.task import TaskStatus as ModelTaskStatus
 
 router = APIRouter()
 
@@ -14,12 +19,12 @@ class TaskStatus(str, Enum):
     PENDING = "pending"
     IN_PROGRESS = "in_progress"
     COMPLETED = "completed"
-    CANCELLED = "cancelled"
 
 
 class TaskCreate(BaseModel):
     title: str = Field(..., min_length=1, max_length=200)
     description: str = Field(default="", max_length=1000)
+    user_id: str
 
 
 class TaskUpdate(BaseModel):
@@ -33,24 +38,32 @@ class TaskResponse(BaseModel):
     title: str
     description: str
     status: TaskStatus
+    user_id: str
     created_at: datetime
     updated_at: datetime
-
-
-# In-memory storage (temporary)
-tasks_db = {}
+    
+    class Config:
+        from_attributes = True
 
 
 @router.get("/", response_model=List[TaskResponse])
-async def get_tasks():
+async def get_tasks(
+    db: AsyncSession = Depends(get_db)
+):
     """Get all tasks."""
-    return list(tasks_db.values())
+    repository = CachedTaskRepository(db)
+    tasks = await repository.get_all()
+    return tasks
 
 
 @router.get("/{task_id}", response_model=TaskResponse)
-async def get_task(task_id: str):
+async def get_task(
+    task_id: str,
+    db: AsyncSession = Depends(get_db)
+):
     """Get task by ID."""
-    task = tasks_db.get(task_id)
+    repository = CachedTaskRepository(db)
+    task = await repository.get_by_id(task_id)
     if not task:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -60,54 +73,61 @@ async def get_task(task_id: str):
 
 
 @router.post("/", response_model=TaskResponse, status_code=status.HTTP_201_CREATED)
-async def create_task(task_create: TaskCreate):
+async def create_task(
+    task_create: TaskCreate,
+    db: AsyncSession = Depends(get_db)
+):
     """Create a new task."""
-    import uuid
+    repository = CachedTaskRepository(db)
     
-    task_id = str(uuid.uuid4())
-    now = datetime.utcnow()
-    task = TaskResponse(
-        id=task_id,
-        title=task_create.title,
-        description=task_create.description,
-        status=TaskStatus.PENDING,
-        created_at=now,
-        updated_at=now
-    )
-    tasks_db[task_id] = task
+    task_data = task_create.dict()
+    task_data["status"] = ModelTaskStatus.PENDING
+    
+    task = await repository.create(task_data)
+    if not task:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to create task"
+        )
     return task
 
 
 @router.put("/{task_id}", response_model=TaskResponse)
-async def update_task(task_id: str, task_update: TaskUpdate):
+async def update_task(
+    task_id: str,
+    task_update: TaskUpdate,
+    db: AsyncSession = Depends(get_db)
+):
     """Update a task."""
-    if task_id not in tasks_db:
+    repository = CachedTaskRepository(db)
+    
+    task = await repository.get_by_id(task_id)
+    if not task:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Task not found"
         )
     
-    task = tasks_db[task_id]
     update_data = task_update.dict(exclude_unset=True)
+    if "status" in update_data:
+        # Convert string status to enum
+        update_data["status"] = ModelTaskStatus(update_data["status"])
     
-    # Update fields
-    for field, value in update_data.items():
-        setattr(task, field, value)
-    
-    # Update timestamp
-    task.updated_at = datetime.utcnow()
-    
-    tasks_db[task_id] = task
-    return task
+    updated_task = await repository.update(task, update_data)
+    return updated_task
 
 
 @router.delete("/{task_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_task(task_id: str):
+async def delete_task(
+    task_id: str,
+    db: AsyncSession = Depends(get_db)
+):
     """Delete a task."""
-    if task_id not in tasks_db:
+    repository = CachedTaskRepository(db)
+    
+    success = await repository.delete(task_id)
+    if not success:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Task not found"
         )
-    
-    del tasks_db[task_id]

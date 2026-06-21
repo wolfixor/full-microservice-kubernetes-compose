@@ -1,2 +1,53 @@
-# Auto detect text files and perform LF normalization
-* text=auto
+# Python
+__pycache__/
+*.py[cod]
+*.so
+
+# Virtualenv
+.venv/
+venv/
+
+# Environment
+.env
+.env.local
+.env.production
+!.env.example
+
+# Poetry
+poetry.toml
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Type checkers & linters
+.mypy_cache/
+.ruff_cache/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Uploads & media
+uploads/
+media/
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+
+# Local databases
+*.db
+*.sqlite3
+
+place-data/
+place-data

@@ -1,20 +1,45 @@
 """Main user service application."""
 
 import logging
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from .core.logger import setup_logging
 from .core.config import settings
 from .api.api import api_router
+from .db.session import sync_engine, async_engine
+from .db.base import Base
+from .core.redis_health import check_redis_health
 
 # Setup logging
 setup_logging()
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Lifespan context manager for startup and shutdown events."""
+    # Startup: Test database connection only
+    # Migrations are handled by docker-entrypoint.sh
+    try:
+        from sqlalchemy import text
+        async with async_engine.connect() as conn:
+            await conn.execute(text("SELECT 1"))
+            logging.info("Database connection verified")
+    except Exception as e:
+        logging.warning(f"Database connection failed: {e}")
+    
+    yield
+    
+    # Shutdown: Nothing special for now
+    logging.info("User service shutting down")
+
 
 # Create FastAPI app
 app = FastAPI(
     title=settings.APP_NAME,
     version=settings.APP_VERSION,
     docs_url="/docs",
-    redoc_url="/redoc"
+    redoc_url="/redoc",
+    lifespan=lifespan
 )
 
 # Include API router
@@ -29,11 +54,19 @@ async def health_check():
 
 @app.get("/ready")
 async def readiness_check():
-    """Readiness check endpoint."""
+    """Readiness check endpoint with Redis health check."""
     logger = logging.getLogger(__name__)
-    logger.info("User service readiness check passed")
+    
+    # Check Redis health
+    redis_health = await check_redis_health()
+    
+    # Determine overall readiness
+    is_ready = redis_health.get("connected", False)
+    
+    logger.info(f"User service readiness check: Redis {'healthy' if is_ready else 'unhealthy'}")
     
     return {
-        "status": "ready",
-        "service": settings.APP_NAME
+        "status": "ready" if is_ready else "not_ready",
+        "service": settings.APP_NAME,
+        "redis": redis_health
     }

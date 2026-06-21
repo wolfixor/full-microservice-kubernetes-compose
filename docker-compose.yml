@@ -1,6 +1,7 @@
 version: "3.8"
 
 services:
+  # ---------------- COMMENT SERVICE ----------------
   comment-service:
     build:
       context: ./comment-service
@@ -9,10 +10,48 @@ services:
     container_name: comment-service
     ports:
       - "8001:8000"
-    # env_file:
-    #   - ./comment-service/.env
     restart: unless-stopped
+    environment:
+      RUN_MIGRATIONS: "true"
+      POSTGRES_HOST: comment-service-db
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: comment_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_DB: 2  # Comment service uses database 2
+      REDIS_PASSWORD: ""
+    networks:
+      - comment-service-network
+    depends_on:
+      comment-service-db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
 
+  comment-service-db:
+    image: 185.120.221.119:8083/postgres:17.10-alpine3.22
+    container_name: comment-service-db
+    environment:
+      POSTGRES_DB: comment_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - ./place-data/comment_service_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d comment_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - comment-service-network
+
+
+
+
+  # ---------------- TASK SERVICE ----------------
   task-service:
     build:
       context: ./task-service
@@ -21,10 +60,48 @@ services:
     container_name: task-service
     ports:
       - "8002:8000"
-    # env_file:
-    #   - ./task-service/.env
     restart: unless-stopped
+    environment:
+      RUN_MIGRATIONS: "true"
+      POSTGRES_HOST: task-service-db
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: task_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_DB: 1  # Task service uses database 1
+      REDIS_PASSWORD: ""
+    networks:
+      - task-service-network
+    depends_on:
+      task-service-db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
 
+  task-service-db:
+    image: 185.120.221.119:8083/postgres:17.10-alpine3.22
+    container_name: task-service-db
+    environment:
+      POSTGRES_DB: task_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - ./place-data/task_service_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d task_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - task-service-network
+  
+
+
+
+  # ---------------- USER SERVICE ----------------
   user-service:
     build:
       context: ./user-service
@@ -33,6 +110,66 @@ services:
     container_name: user-service
     ports:
       - "8003:8000"
-    # env_file:
-    #   - ./user-service/.env
     restart: unless-stopped
+    environment:
+      RUN_MIGRATIONS: "true"
+      POSTGRES_HOST: user-service-db
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: user_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_DB: 0  # User service uses database 0
+      REDIS_PASSWORD: ""
+    networks:
+      - user-service-network
+    depends_on:
+      user-service-db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  user-service-db:
+    image: 185.120.221.119:8083/postgres:17.10-alpine3.22
+    container_name: user-service-db
+    environment:
+      POSTGRES_DB: user_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - ./place-data/user_service_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d user_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - user-service-network
+  
+  # Shared Redis for all services
+  redis:
+    image: 185.120.221.119:8083/redis:7.4-alpine
+    container_name: redis
+    environment:
+      REDIS_PASSWORD: ""
+    volumes:
+      - ./place-data/redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - comment-service-network
+      - task-service-network
+      - user-service-network
+    restart: unless-stopped
+
+
+# ---------------- NETWORKS ----------------
+networks:
+  comment-service-network:
+  task-service-network:
+  user-service-network:

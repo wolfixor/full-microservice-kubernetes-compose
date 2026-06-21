@@ -1,0 +1,407 @@
+# Practical Alembic Examples
+## Ready-to-use files for Docker Compose & Kubernetes
+
+---
+
+## 🐳 **Docker Compose Implementation**
+
+### **1. Entrypoint Script (docker-entrypoint.sh)**
+```bash
+#!/bin/bash
+set -e
+
+echo "🔍 Checking database connection..."
+
+# Use environment variables
+DB_HOST=${POSTGRES_HOST}
+DB_PORT=${POSTGRES_PORT:-5432}
+MAX_RETRIES=30
+RETRY_COUNT=0
+
+# Wait for database
+while ! nc -z $DB_HOST $DB_PORT && [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+    echo "⏳ Waiting for database... ($RETRY_COUNT/$MAX_RETRIES)"
+    sleep 2
+    RETRY_COUNT=$((RETRY_COUNT+1))
+done
+
+if [ $RETRY_COUNT -eq $MAX_RETRIES ]; then
+    echo "❌ Database not available"
+    exit 1
+fi
+
+echo "✅ Database is ready!"
+
+# Run migrations if enabled
+if [ "${RUN_MIGRATIONS:-false}" = "true" ]; then
+    echo "🚀 Running database migrations..."
+    alembic upgrade head
+    echo "✅ Migrations completed"
+fi
+
+# Start application
+echo "🎯 Starting application..."
+exec "$@"
+```
+
+### **2. Updated Dockerfile**
+```dockerfile
+FROM python:3.12-slim
+
+# Install netcat for database checking
+RUN apt-get update && apt-get install -y netcat-openbsd && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Copy requirements and install
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy application
+COPY app/ ./app/
+COPY alembic.ini ./alembic.ini
+COPY alembic/ ./alembic/
+
+# Copy entrypoint script
+COPY docker-entrypoint.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+
+# Set entrypoint
+ENTRYPOINT ["docker-entrypoint.sh"]
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+```
+
+### **3. Updated docker-compose.yml Section**
+```yaml
+services:
+  user-service:
+    build: ./user-service
+    environment:
+      RUN_MIGRATIONS: "true"  # Enable migrations
+      POSTGRES_HOST: user-service-db
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: user_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000
+    depends_on:
+      user-service-db:
+        condition: service_healthy
+```
+
+### **4. Updated Main.py**
+```python
+# app/main.py - Remove create_all, keep only connection test
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Lifespan context manager."""
+    # Test database connection only
+    try:
+        async with async_engine.connect() as conn:
+            await conn.execute(text("SELECT 1"))
+            logging.info("Database connection verified")
+    except Exception as e:
+        logging.warning(f"Database connection failed: {e}")
+    
+    yield
+    
+    logging.info("Service shutting down")
+```
+
+---
+
+## ☸️ **Kubernetes Implementation**
+
+### **1. Migration Job (migration-job.yaml)**
+```yaml
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: user-service-migration
+  labels:
+    app: user-service
+    component: migration
+spec:
+  ttlSecondsAfterFinished: 86400  # Delete after 24h
+  backoffLimit: 3
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+      - name: migrate
+        image: user-service:latest
+        command: ["alembic", "upgrade", "head"]
+        env:
+        - name: POSTGRES_HOST
+          value: "user-service-db"
+        - name: POSTGRES_PORT
+          value: "5432"
+        - name: POSTGRES_DB
+          value: "user_db"
+        - name: POSTGRES_USER
+          valueFrom:
+            secretKeyRef:
+              name: postgres-credentials
+              key: POSTGRES_USER
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: postgres-credentials
+              key: POSTGRES_PASSWORD
+```
+
+### **2. Updated Deployment (deployment.yaml)**
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: user-service
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: user-service
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app: user-service
+    spec:
+      initContainers:
+      - name: wait-for-migration
+        image: bitnami/kubectl:latest
+        command:
+        - /bin/sh
+        - -c
+        - |
+          echo "⏳ Waiting for migration job..."
+          until kubectl get job user-service-migration -o jsonpath='{.status.succeeded}' | grep -q 1; do
+            sleep 5
+          done
+          echo "✅ Migration completed"
+      containers:
+      - name: user-service
+        image: user-service:latest
+        ports:
+        - containerPort: 8000
+        env:
+        - name: POSTGRES_HOST
+          value: "user-service-db"
+        - name: POSTGRES_PORT
+          value: "5432"
+        - name: POSTGRES_DB
+          value: "user_db"
+        - name: POSTGRES_USER
+          valueFrom:
+            secretKeyRef:
+              name: postgres-credentials
+              key: POSTGRES_USER
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: postgres-credentials
+              key: POSTGRES_PASSWORD
+```
+
+### **3. Service (service.yaml)**
+```yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: user-service
+spec:
+  selector:
+    app: user-service
+  ports:
+  - port: 8000
+    targetPort: 8000
+```
+
+### **4. Rollback Job (rollback-job.yaml)**
+```yaml
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: user-service-rollback
+spec:
+  template:
+    spec:
+      containers:
+      - name: rollback
+        image: user-service:previous-version
+        command: ["alembic", "downgrade", "-1"]
+        env:
+        - name: POSTGRES_HOST
+          value: "user-service-db"
+        - name: POSTGRES_PORT
+          value: "5432"
+```
+
+---
+
+## 🔄 **Deployment Scripts**
+
+### **Docker Compose Deployment:**
+```bash
+#!/bin/bash
+# deploy-docker.sh
+
+echo "🚀 Deploying with Docker Compose..."
+
+# Stop existing
+docker-compose down
+
+# Build with migrations
+docker-compose build
+
+# Start with migrations enabled
+RUN_MIGRATIONS=true docker-compose up -d
+
+echo "✅ Deployment complete!"
+echo "📊 Check logs: docker-compose logs -f"
+```
+
+### **Kubernetes Deployment:**
+```bash
+#!/bin/bash
+# deploy-kubernetes.sh
+
+echo "🚀 Deploying to Kubernetes..."
+
+# 1. Apply migration job
+kubectl apply -f k8s/migration-job.yaml
+
+# 2. Wait for migration
+echo "⏳ Waiting for migrations..."
+kubectl wait --for=condition=complete job/user-service-migration --timeout=300s
+
+# 3. Apply deployment
+kubectl apply -f k8s/deployment.yaml
+
+# 4. Wait for rollout
+echo "⏳ Waiting for rollout..."
+kubectl rollout status deployment/user-service --timeout=300s
+
+echo "✅ Deployment complete!"
+```
+
+### **Rollback Script:**
+```bash
+#!/bin/bash
+# rollback.sh
+
+echo "🔄 Rolling back..."
+
+# 1. Pause rollout
+kubectl rollout pause deployment/user-service
+
+# 2. Run rollback migration
+kubectl apply -f k8s/rollback-job.yaml
+kubectl wait --for=condition=complete job/user-service-rollback --timeout=300s
+
+# 3. Rollback deployment
+kubectl rollout undo deployment/user-service
+
+# 4. Resume
+kubectl rollout resume deployment/user-service
+
+echo "✅ Rollback complete!"
+```
+
+---
+
+## 🧪 **Testing Scripts**
+
+### **Test Migration Locally:**
+```bash
+#!/bin/bash
+# test-migration.sh
+
+echo "🧪 Testing migration..."
+
+# Generate migration
+docker-compose exec user-service alembic revision --autogenerate -m "test migration"
+
+# Dry run
+docker-compose exec user-service alembic upgrade head --sql
+
+# Apply
+docker-compose exec user-service alembic upgrade head
+
+# Verify
+docker-compose exec user-service alembic current
+
+echo "✅ Migration test complete!"
+```
+
+### **Test in Kubernetes:**
+```bash
+#!/bin/bash
+# test-k8s-migration.sh
+
+echo "🧪 Testing Kubernetes migration..."
+
+# Create test job
+kubectl create job migration-test --from=cronjob/user-service-migration --dry-run=client -o yaml > test-job.yaml
+
+# Run test
+kubectl apply -f test-job.yaml
+
+# Watch logs
+kubectl logs job/migration-test -f
+
+# Cleanup
+kubectl delete -f test-job.yaml
+
+echo "✅ Kubernetes migration test complete!"
+```
+
+---
+
+## 📋 **Quick Start Commands**
+
+### **For Docker Compose:**
+```bash
+# 1. Add entrypoint script to each service
+# 2. Update Dockerfiles
+# 3. Update main.py (remove create_all)
+# 4. Update docker-compose.yml
+# 5. Run: docker-compose up --build
+```
+
+### **For Kubernetes:**
+```bash
+# 1. Create migration-job.yaml
+# 2. Update deployment.yaml with initContainer
+# 3. Apply: kubectl apply -f migration-job.yaml
+# 4. Wait: kubectl wait --for=condition=complete job/...
+# 5. Apply: kubectl apply -f deployment.yaml
+```
+
+---
+
+## 🎯 **Summary**
+
+### **Docker Compose (Development):**
+- ✅ Simple entrypoint script
+- ✅ Auto-migrate on startup
+- ✅ Good for local development
+- ❌ Not for production
+
+### **Kubernetes (Production):**
+- ✅ Separate migration job
+- ✅ Wait for completion
+- ✅ Safe, controlled migrations
+- ✅ Production-ready
+
+### **Files to Create:**
+1. **docker-entrypoint.sh** - For Docker Compose
+2. **migration-job.yaml** - For Kubernetes
+3. **deployment.yaml** - Updated with initContainer
+4. **rollback-job.yaml** - Emergency rollback
+
+**Choose based on your environment, but always use proper alembic migrations instead of create_all()!** 🎉

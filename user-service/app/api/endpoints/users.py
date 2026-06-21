@@ -1,8 +1,13 @@
 """User management endpoints."""
 
 from typing import List
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel, EmailStr
+from datetime import datetime
+
+from ...db.session import get_db
+from ...repositories.cached_user_repository import CachedUserRepository
 
 router = APIRouter()
 
@@ -19,22 +24,31 @@ class UserResponse(BaseModel):
     username: str
     email: str
     full_name: str
-
-
-# In-memory storage (temporary)
-users_db = {}
+    created_at: datetime
+    updated_at: datetime
+    
+    class Config:
+        from_attributes = True
 
 
 @router.get("/", response_model=List[UserResponse])
-async def get_users():
+async def get_users(
+    db: AsyncSession = Depends(get_db)
+):
     """Get all users."""
-    return list(users_db.values())
+    repository = CachedUserRepository(db)
+    users = await repository.get_all()
+    return users
 
 
 @router.get("/{user_id}", response_model=UserResponse)
-async def get_user(user_id: str):
+async def get_user(
+    user_id: str,
+    db: AsyncSession = Depends(get_db)
+):
     """Get user by ID."""
-    user = users_db.get(user_id)
+    repository = CachedUserRepository(db)
+    user = await repository.get_by_id(user_id)
     if not user:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -44,47 +58,85 @@ async def get_user(user_id: str):
 
 
 @router.post("/", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
-async def create_user(user_create: UserCreate):
+async def create_user(
+    user_create: UserCreate,
+    db: AsyncSession = Depends(get_db)
+):
     """Create a new user."""
-    import uuid
+    repository = CachedUserRepository(db)
     
-    user_id = str(uuid.uuid4())
-    user = UserResponse(
-        id=user_id,
-        username=user_create.username,
-        email=user_create.email,
-        full_name=user_create.full_name
-    )
-    users_db[user_id] = user
+    # Check if username or email already exists
+    existing_user = await repository.get_by_username(user_create.username)
+    if existing_user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Username already exists"
+        )
+    
+    existing_email = await repository.get_by_email(user_create.email)
+    if existing_email:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Email already exists"
+        )
+    
+    user = await repository.create(user_create.dict())
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to create user"
+        )
     return user
 
 
 @router.put("/{user_id}", response_model=UserResponse)
-async def update_user(user_id: str, user_update: UserCreate):
+async def update_user(
+    user_id: str,
+    user_update: UserCreate,
+    db: AsyncSession = Depends(get_db)
+):
     """Update a user."""
-    if user_id not in users_db:
+    repository = CachedUserRepository(db)
+    
+    user = await repository.get_by_id(user_id)
+    if not user:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="User not found"
         )
     
-    user = UserResponse(
-        id=user_id,
-        username=user_update.username,
-        email=user_update.email,
-        full_name=user_update.full_name
-    )
-    users_db[user_id] = user
-    return user
+    # Check if new username or email conflicts with other users
+    if user_update.username != user.username:
+        existing_user = await repository.get_by_username(user_update.username)
+        if existing_user:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Username already exists"
+            )
+    
+    if user_update.email != user.email:
+        existing_email = await repository.get_by_email(user_update.email)
+        if existing_email:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Email already exists"
+            )
+    
+    updated_user = await repository.update(user, user_update.dict())
+    return updated_user
 
 
 @router.delete("/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_user(user_id: str):
+async def delete_user(
+    user_id: str,
+    db: AsyncSession = Depends(get_db)
+):
     """Delete a user."""
-    if user_id not in users_db:
+    repository = CachedUserRepository(db)
+    
+    success = await repository.delete(user_id)
+    if not success:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="User not found"
         )
-    
-    del users_db[user_id]

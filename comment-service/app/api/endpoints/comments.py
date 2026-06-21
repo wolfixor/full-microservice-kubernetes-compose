@@ -2,8 +2,12 @@
 
 from typing import List
 from datetime import datetime
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel, Field
+
+from ...db.session import get_db
+from ...repositories.cached_comment_repository import CachedCommentRepository
 
 router = APIRouter()
 
@@ -22,22 +26,29 @@ class CommentResponse(BaseModel):
     content: str
     created_at: datetime
     updated_at: datetime
-
-
-# In-memory storage (temporary)
-comments_db = {}
+    
+    class Config:
+        from_attributes = True
 
 
 @router.get("/", response_model=List[CommentResponse])
-async def get_comments():
+async def get_comments(
+    db: AsyncSession = Depends(get_db)
+):
     """Get all comments."""
-    return list(comments_db.values())
+    repository = CachedCommentRepository(db)
+    comments = await repository.get_all()
+    return comments
 
 
 @router.get("/{comment_id}", response_model=CommentResponse)
-async def get_comment(comment_id: str):
+async def get_comment(
+    comment_id: str,
+    db: AsyncSession = Depends(get_db)
+):
     """Get comment by ID."""
-    comment = comments_db.get(comment_id)
+    repository = CachedCommentRepository(db)
+    comment = await repository.get_by_id(comment_id)
     if not comment:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -47,53 +58,53 @@ async def get_comment(comment_id: str):
 
 
 @router.post("/", response_model=CommentResponse, status_code=status.HTTP_201_CREATED)
-async def create_comment(comment_create: CommentCreate):
+async def create_comment(
+    comment_create: CommentCreate,
+    db: AsyncSession = Depends(get_db)
+):
     """Create a new comment."""
-    import uuid
+    repository = CachedCommentRepository(db)
     
-    comment_id = str(uuid.uuid4())
-    now = datetime.utcnow()
-    comment = CommentResponse(
-        id=comment_id,
-        task_id=comment_create.task_id,
-        user_id=comment_create.user_id,
-        content=comment_create.content,
-        created_at=now,
-        updated_at=now
-    )
-    comments_db[comment_id] = comment
+    comment = await repository.create(comment_create.dict())
+    if not comment:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to create comment"
+        )
     return comment
 
 
 @router.put("/{comment_id}", response_model=CommentResponse)
-async def update_comment(comment_id: str, comment_update: CommentCreate):
+async def update_comment(
+    comment_id: str,
+    comment_update: CommentCreate,
+    db: AsyncSession = Depends(get_db)
+):
     """Update a comment."""
-    if comment_id not in comments_db:
+    repository = CachedCommentRepository(db)
+    
+    comment = await repository.get_by_id(comment_id)
+    if not comment:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Comment not found"
         )
     
-    now = datetime.utcnow()
-    comment = CommentResponse(
-        id=comment_id,
-        task_id=comment_update.task_id,
-        user_id=comment_update.user_id,
-        content=comment_update.content,
-        created_at=comments_db[comment_id].created_at,
-        updated_at=now
-    )
-    comments_db[comment_id] = comment
-    return comment
+    updated_comment = await repository.update(comment, comment_update.dict())
+    return updated_comment
 
 
 @router.delete("/{comment_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_comment(comment_id: str):
+async def delete_comment(
+    comment_id: str,
+    db: AsyncSession = Depends(get_db)
+):
     """Delete a comment."""
-    if comment_id not in comments_db:
+    repository = CachedCommentRepository(db)
+    
+    success = await repository.delete(comment_id)
+    if not success:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Comment not found"
         )
-    
-    del comments_db[comment_id]

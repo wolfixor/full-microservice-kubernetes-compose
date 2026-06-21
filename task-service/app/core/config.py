@@ -10,21 +10,31 @@ class Settings(BaseSettings):
     APP_NAME: str = "task-service"
     APP_VERSION: str = "1.0.0"
     
-    # Database
-    # POSTGRES_HOST: str = "task-service-db"
-    # POSTGRES_PORT: int = 5432
-    # POSTGRES_DB: str = "taskdb"
-    # POSTGRES_USER: str = "postgres"
-    # POSTGRES_PASSWORD: str = "postgres"
+    # Database (read from environment variables)
+    POSTGRES_HOST: str = "task-service-db"
+    POSTGRES_PORT: int = 5432
+    POSTGRES_DB: str = "task_db"
+    POSTGRES_USER: str = ""
+    POSTGRES_PASSWORD: str = ""
     
-    # # Server
-    # HOST: str = "0.0.0.0"
-    # PORT: int = 8002
+    # Server
+    HOST: str = "0.0.0.0"
+    PORT: int = 8002
     
-    # class Config:
-    #     env_file = ".env"
-    #     env_file_encoding = "utf-8"
-    #     case_sensitive = False
+    @property
+    def DATABASE_URL_SYNC(self) -> str:
+        """Generate synchronous database URL."""
+        return f"postgresql://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}@{self.POSTGRES_HOST}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
+    
+    @property
+    def DATABASE_URL_ASYNC(self) -> str:
+        """Generate asynchronous database URL."""
+        return f"postgresql+asyncpg://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}@{self.POSTGRES_HOST}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
+    
+    class Config:
+        env_file = ".env"
+        env_file_encoding = "utf-8"
+        case_sensitive = False
 
 
 settings = Settings()

@@ -5,8 +5,10 @@ from datetime import datetime
 from sqlalchemy import String, DateTime
 from sqlalchemy.orm import Mapped, mapped_column
 
+from ..db.base import Base
 
-class User:
+
+class User(Base):
     """User model for user service."""
     
     __tablename__ = "users"
