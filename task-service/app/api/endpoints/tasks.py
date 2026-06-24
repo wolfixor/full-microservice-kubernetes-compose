@@ -81,7 +81,8 @@ async def create_task(
     repository = CachedTaskRepository(db)
     
     task_data = task_create.dict()
-    task_data["status"] = ModelTaskStatus.PENDING
+    # Use enum value to ensure consistency
+    task_data["status"] = ModelTaskStatus.PENDING.value
     
     task = await repository.create(task_data)
     if not task:
@@ -109,9 +110,7 @@ async def update_task(
         )
     
     update_data = task_update.dict(exclude_unset=True)
-    if "status" in update_data:
-        # Convert string status to enum
-        update_data["status"] = ModelTaskStatus(update_data["status"])
+    # FastAPI already converts enums to their values in .dict()
     
     updated_task = await repository.update(task, update_data)
     return updated_task

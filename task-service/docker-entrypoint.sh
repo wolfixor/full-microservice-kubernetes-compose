@@ -25,10 +25,17 @@ fi
 
 echo "✅ Database is ready!"
 
-# Check if migrations have been run by checking if tasks table exists
-# (This is a simple check that works for task-service)
-echo "🔍 Checking if database tables exist..."
-if [ "${CHECK_MIGRATIONS:-true}" = "true" ]; then
+# Check if migrations should be run
+if [ "${RUN_MIGRATIONS:-false}" = "true" ]; then
+    echo "🔧 Running database migrations..."
+    if ! alembic upgrade head; then
+        echo "❌ Migrations failed"
+        exit 1
+    fi
+    echo "✅ Migrations completed"
+elif [ "${CHECK_MIGRATIONS:-true}" = "true" ]; then
+    # Check if migrations have been run by checking if tasks table exists
+    echo "🔍 Checking if database tables exist..."
     if ! PGPASSWORD=${POSTGRES_PASSWORD} psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -c "SELECT 1 FROM tasks LIMIT 0;" > /dev/null 2>&1; then
         echo "❌ Database tables not found. Did migrations run?"
         echo "💡 To fix this, run migrations using: alembic upgrade head"

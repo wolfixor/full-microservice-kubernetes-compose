@@ -3,11 +3,10 @@
 import uuid
 from datetime import datetime
 from enum import Enum
-from sqlalchemy import String, DateTime, Text, Enum as SQLEnum
+from sqlalchemy import String, DateTime, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from ..db.base import Base
-
 
 class TaskStatus(str, Enum):
     """Task status enumeration."""
@@ -31,9 +30,9 @@ class Task(Base):
     
     description: Mapped[str] = mapped_column(Text, default="")
     
-    status: Mapped[TaskStatus] = mapped_column(
-        SQLEnum(TaskStatus),
-        default=TaskStatus.PENDING,
+    status: Mapped[str] = mapped_column(
+        String(20),
+        default="pending",
         nullable=False
     )
     

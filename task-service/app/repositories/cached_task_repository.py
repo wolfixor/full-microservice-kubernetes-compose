@@ -1,6 +1,7 @@
 """Cached task repository with Redis integration."""
 
 import asyncio
+from datetime import datetime
 from typing import List, Optional, Dict, Any
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -41,10 +42,8 @@ class CachedTaskRepository:
             "id": str(task.id),
             "title": task.title,
             "description": task.description,
-            "status": task.status.value if task.status else None,
+            "status": task.status,
             "user_id": task.user_id,
-            "priority": task.priority,
-            "due_date": task.due_date.isoformat() if task.due_date else None,
             "created_at": task.created_at.isoformat() if task.created_at else None,
             "updated_at": task.updated_at.isoformat() if task.updated_at else None,
         }
@@ -64,6 +63,11 @@ class CachedTaskRepository:
         
         if cached_data:
             # Convert cached dict back to Task model
+            # Parse datetime strings back to datetime objects
+            if cached_data.get('created_at'):
+                cached_data['created_at'] = datetime.fromisoformat(cached_data['created_at'])
+            if cached_data.get('updated_at'):
+                cached_data['updated_at'] = datetime.fromisoformat(cached_data['updated_at'])
             return Task(**cached_data)
         
         # Cache miss - query database
