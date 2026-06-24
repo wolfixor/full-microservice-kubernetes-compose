@@ -109,8 +109,17 @@ class CachedTaskRepository:
             await self.db.rollback()
             return None
     
-    async def update(self, task: Task, update_data: dict) -> Task:
+    async def update(self, task_id: str, update_data: dict) -> Optional[Task]:
         """Update an existing task and invalidate cache."""
+        # First, get the task from database to ensure it's attached to session
+        result = await self.db.execute(
+            select(Task).where(Task.id == task_id)
+        )
+        task = result.scalar_one_or_none()
+        
+        if not task:
+            return None
+        
         # Update task
         for field, value in update_data.items():
             if hasattr(task, field):
@@ -121,7 +130,7 @@ class CachedTaskRepository:
         
         # Invalidate cache
         await self._init_redis()
-        cache_key = self._get_cache_key(str(task.id))
+        cache_key = self._get_cache_key(task_id)
         await self.redis_cache.delete(cache_key)
         
         return task

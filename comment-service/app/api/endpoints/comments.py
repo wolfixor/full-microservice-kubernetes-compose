@@ -90,7 +90,7 @@ async def update_comment(
             detail="Comment not found"
         )
     
-    updated_comment = await repository.update(comment, comment_update.dict())
+    updated_comment = await repository.update(comment_id, comment_update.dict())
     return updated_comment
 
 

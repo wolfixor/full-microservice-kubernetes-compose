@@ -1,6 +1,7 @@
 """Cached comment repository with Redis integration."""
 
 import asyncio
+from datetime import datetime
 from typing import List, Optional, Dict, Any
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -61,6 +62,11 @@ class CachedCommentRepository:
         
         if cached_data:
             # Convert cached dict back to Comment model
+            # Parse datetime strings back to datetime objects
+            if cached_data.get('created_at'):
+                cached_data['created_at'] = datetime.fromisoformat(cached_data['created_at'])
+            if cached_data.get('updated_at'):
+                cached_data['updated_at'] = datetime.fromisoformat(cached_data['updated_at'])
             return Comment(**cached_data)
         
         # Cache miss - query database
@@ -102,8 +108,17 @@ class CachedCommentRepository:
             await self.db.rollback()
             return None
     
-    async def update(self, comment: Comment, update_data: dict) -> Comment:
+    async def update(self, comment_id: str, update_data: dict) -> Optional[Comment]:
         """Update an existing comment and invalidate cache."""
+        # First, get the comment from database to ensure it's attached to session
+        result = await self.db.execute(
+            select(Comment).where(Comment.id == comment_id)
+        )
+        comment = result.scalar_one_or_none()
+        
+        if not comment:
+            return None
+        
         # Update comment
         for field, value in update_data.items():
             if hasattr(comment, field):
@@ -114,7 +129,7 @@ class CachedCommentRepository:
         
         # Invalidate cache
         await self._init_redis()
-        cache_key = self._get_cache_key(str(comment.id))
+        cache_key = self._get_cache_key(comment_id)
         await self.redis_cache.delete(cache_key)
         
         return comment

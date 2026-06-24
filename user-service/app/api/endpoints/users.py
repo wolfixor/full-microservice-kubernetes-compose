@@ -122,7 +122,7 @@ async def update_user(
                 detail="Email already exists"
             )
     
-    updated_user = await repository.update(user, user_update.dict())
+    updated_user = await repository.update(user_id, user_update.dict())
     return updated_user
 
 

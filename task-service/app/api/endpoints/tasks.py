@@ -112,7 +112,7 @@ async def update_task(
     update_data = task_update.dict(exclude_unset=True)
     # FastAPI already converts enums to their values in .dict()
     
-    updated_task = await repository.update(task, update_data)
+    updated_task = await repository.update(task_id, update_data)
     return updated_task
 
 

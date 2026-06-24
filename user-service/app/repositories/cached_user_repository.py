@@ -1,6 +1,7 @@
 """Cached user repository with Redis integration."""
 
 import asyncio
+from datetime import datetime
 from typing import List, Optional, Dict, Any
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -61,6 +62,11 @@ class CachedUserRepository:
         
         if cached_data:
             # Convert cached dict back to User model
+            # Parse datetime strings back to datetime objects
+            if cached_data.get('created_at'):
+                cached_data['created_at'] = datetime.fromisoformat(cached_data['created_at'])
+            if cached_data.get('updated_at'):
+                cached_data['updated_at'] = datetime.fromisoformat(cached_data['updated_at'])
             return User(**cached_data)
         
         # Cache miss - query database
@@ -102,8 +108,17 @@ class CachedUserRepository:
             await self.db.rollback()
             return None
     
-    async def update(self, user: User, update_data: dict) -> User:
+    async def update(self, user_id: str, update_data: dict) -> Optional[User]:
         """Update an existing user and invalidate cache."""
+        # First, get the user from database to ensure it's attached to session
+        result = await self.db.execute(
+            select(User).where(User.id == user_id)
+        )
+        user = result.scalar_one_or_none()
+        
+        if not user:
+            return None
+        
         # Update user
         for field, value in update_data.items():
             if hasattr(user, field):
@@ -114,7 +129,7 @@ class CachedUserRepository:
         
         # Invalidate cache
         await self._init_redis()
-        cache_key = self._get_cache_key(str(user.id))
+        cache_key = self._get_cache_key(user_id)
         await self.redis_cache.delete(cache_key)
         
         return user
