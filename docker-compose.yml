@@ -354,6 +354,25 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
+  # ---------------- NODE EXPORTER ----------------
+  node-exporter:
+    image: prom/node-exporter:v1.7.0
+    container_name: node-exporter
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.sysfs=/host/sys'
+      - '--path.rootfs=/host/root'
+      - '--collector.filesystem.mount-points-exclude=^/(dev|proc|sys|run)($|/)'
+    ports:
+      - "9100:9100"
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/host/root:ro
+    networks:
+      - wolfix-service-network
+    restart: unless-stopped
+
 # ---------------- VOLUMES ----------------
 volumes:
   prometheus_data:

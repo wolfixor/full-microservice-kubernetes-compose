@@ -27,7 +27,7 @@ data:
         action: keep
         regex: default;kubernetes;https
 
-    # Kubernetes nodes
+    # Kubernetes nodes (kubelet /metrics — CPU, memory, network, filesystem)
     - job_name: kubernetes-nodes
       kubernetes_sd_configs:
       - role: node
@@ -39,6 +39,8 @@ data:
       relabel_configs:
       - action: labelmap
         regex: __meta_kubernetes_node_label_(.+)
+      - source_labels: [__meta_kubernetes_node_name]
+        target_label: node
 
     # Kubernetes kubelet (cAdvisor metrics)
     - job_name: kubernetes-cadvisor
@@ -52,6 +54,8 @@ data:
       relabel_configs:
       - action: labelmap
         regex: __meta_kubernetes_node_label_(.+)
+      - source_labels: [__meta_kubernetes_node_name]
+        target_label: node
       metric_relabel_configs:
       - source_labels: [__name__]
         regex: (container_.*|machine_.*|kubelet_.*)
@@ -166,6 +170,22 @@ data:
       - source_labels: [__meta_kubernetes_service_label_app]
         action: keep
         regex: kube-state-metrics
+
+    # Node Exporter (node-level metrics: CPU, memory, disk, network, load)
+    - job_name: node-exporter
+      kubernetes_sd_configs:
+      - role: endpoints
+        namespaces:
+          names: [monitoring]
+      relabel_configs:
+      - source_labels: [__meta_kubernetes_service_label_app]
+        action: keep
+        regex: node-exporter
+      - source_labels: [__meta_kubernetes_endpoint_port_name]
+        action: keep
+        regex: metrics
+      - source_labels: [__meta_kubernetes_pod_node_name]
+        target_label: node
 
     # Prometheus itself
     - job_name: prometheus

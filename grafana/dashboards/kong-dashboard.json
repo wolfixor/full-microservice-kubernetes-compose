@@ -48,7 +48,7 @@
       "datasource": "Prometheus",
       "targets": [
         {
-          "expr": "histogram_quantile(0.95, sum(rate(kong_latency_ms_bucket{type=\"upstream\"}[5m])) by (le, service))",
+          "expr": "histogram_quantile(0.95, sum(rate(kong_upstream_latency_ms_bucket[5m])) by (le, service))",
           "legendFormat": "{{ service }}"
         }
       ],
@@ -66,7 +66,7 @@
       "datasource": "Prometheus",
       "targets": [
         {
-          "expr": "histogram_quantile(0.95, sum(rate(kong_latency_ms_bucket{type=\"kong\"}[5m])) by (le, service))",
+          "expr": "histogram_quantile(0.95, sum(rate(kong_kong_latency_ms_bucket[5m])) by (le, service))",
           "legendFormat": "{{ service }}"
         }
       ],
@@ -84,15 +84,15 @@
       "datasource": "Prometheus",
       "targets": [
         {
-          "expr": "histogram_quantile(0.50, sum(rate(kong_latency_ms_bucket{type=\"request\"}[5m])) by (le))",
+          "expr": "histogram_quantile(0.50, sum(rate(kong_request_latency_ms_bucket[5m])) by (le))",
           "legendFormat": "p50"
         },
         {
-          "expr": "histogram_quantile(0.95, sum(rate(kong_latency_ms_bucket{type=\"request\"}[5m])) by (le))",
+          "expr": "histogram_quantile(0.95, sum(rate(kong_request_latency_ms_bucket[5m])) by (le))",
           "legendFormat": "p95"
         },
         {
-          "expr": "histogram_quantile(0.99, sum(rate(kong_latency_ms_bucket{type=\"request\"}[5m])) by (le))",
+          "expr": "histogram_quantile(0.99, sum(rate(kong_request_latency_ms_bucket[5m])) by (le))",
           "legendFormat": "p99"
         }
       ],
@@ -128,8 +128,8 @@
       "datasource": "Prometheus",
       "targets": [
         {
-          "expr": "sum(rate(kong_bandwidth_bytes[5m])) by (type)",
-          "legendFormat": "{{ type }}"
+          "expr": "sum(rate(kong_bandwidth_bytes[5m])) by (direction)",
+          "legendFormat": "{{ direction }}"
         }
       ],
       "fieldConfig": {
@@ -140,13 +140,13 @@
       }
     },
     {
-      "title": "Active Connections",
+      "title": "Nginx Connections",
       "type": "timeseries",
       "gridPos": {"x": 12, "y": 24, "w": 12, "h": 8},
       "datasource": "Prometheus",
       "targets": [
         {
-          "expr": "kong_nginx_http_current_connections",
+          "expr": "kong_nginx_connections_total",
           "legendFormat": "{{ state }}"
         }
       ],
