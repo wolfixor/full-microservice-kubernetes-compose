@@ -8,6 +8,8 @@
 # kubectl create -f k8s/monitoring/kube-state-metrics.yaml
 # kubectl create -f k8s/monitoring/prometheus-config.yaml
 # kubectl create -f k8s/monitoring/prometheus-deployment.yaml
+# kubectl create -f k8s/monitoring/grafana-dashboards.yaml
+# kubectl create -f k8s/monitoring/grafana-deployment.yaml
 # Apply updated Kong config:
 # kubectl apply -f kong-gateway/k8s/configmap.yaml
 # Redeploy Kong to pick up the plugin

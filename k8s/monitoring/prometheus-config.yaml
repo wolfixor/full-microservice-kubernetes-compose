@@ -145,6 +145,17 @@ data:
         action: keep
         regex: elasticsearch-exporter
 
+    # Grafana
+    - job_name: grafana
+      kubernetes_sd_configs:
+      - role: service
+        namespaces:
+          names: [monitoring]
+      relabel_configs:
+      - source_labels: [__meta_kubernetes_service_label_app]
+        action: keep
+        regex: grafana
+
     # kube-state-metrics
     - job_name: kube-state-metrics
       kubernetes_sd_configs:

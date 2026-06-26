@@ -1,0 +1,830 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboards
+  namespace: monitoring
+  labels:
+    app: grafana
+data:
+  api-dashboard.json: |
+    {
+      "title": "API Dashboard",
+      "version": 1,
+      "uid": "api-dashboard",
+      "timezone": "browser",
+      "schemaVersion": 38,
+      "templating": {
+        "list": [
+          {
+            "name": "service",
+            "type": "query",
+            "query": "label_values(http_requests_total, service)",
+            "refresh": 1,
+            "includeAll": true,
+            "allValue": ".*",
+            "multi": true
+          }
+        ]
+      },
+      "panels": [
+        {
+          "title": "Request Rate",
+          "type": "timeseries",
+          "gridPos": {"x": 0, "y": 0, "w": 12, "h": 8},
+          "datasource": "Prometheus",
+          "targets": [
+            {
+              "expr": "sum(rate(http_requests_total{service=~\"$service\"}[5m])) by (service)",
+              "legendFormat": "{{ service }}"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "reqps",
+              "color": {"mode": "palette-classic"},
+              "custom": {"axisCenteredZero": false, "axisLabel": ""}
+            }
+          }
+        },
+        {
+          "title": "Error Rate (5xx)",
+          "type": "timeseries",
+          "gridPos": {"x": 12, "y": 0, "w": 12, "h": 8},
+          "datasource": "Prometheus",
+          "targets": [
+            {
+              "expr": "sum(rate(http_requests_total{service=~\"$service\",status=~\"5..\"}[5m])) by (service)",
+              "legendFormat": "{{ service }}"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "reqps",
+              "color": {"mode": "palette-classic"}
+            }
+          }
+        },
+        {
+          "title": "P95 Latency",
+          "type": "timeseries",
+          "gridPos": {"x": 0, "y": 8, "w": 12, "h": 8},
+          "datasource": "Prometheus",
+          "targets": [
+            {
+              "expr": "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{service=~\"$service\"}[5m])) by (le, service))",
+              "legendFormat": "{{ service }}"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "s",
+              "color": {"mode": "palette-classic"}
+            }
+          }
+        },
+        {
+          "title": "P99 Latency",
+          "type": "timeseries",
+          "gridPos": {"x": 12, "y": 8, "w": 12, "h": 8},
+          "datasource": "Prometheus",
+          "targets": [
+            {
+              "expr": "histogram_quantile(0.99, sum(rate(http_request_duration_seconds_bucket{service=~\"$service\"}[5m])) by (le, service))",
+              "legendFormat": "{{ service }}"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "s",
+              "color": {"mode": "palette-classic"}
+            }
+          }
+        },
+        {
+          "title": "DB Query Rate",
+          "type": "timeseries",
+          "gridPos": {"x": 0, "y": 16, "w": 8, "h": 8},
+          "datasource": "Prometheus",
+          "targets": [
+            {
+              "expr": "sum(rate(db_query_total{service=~\"$service\"}[5m])) by (service)",
+              "legendFormat": "{{ service }}"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "qps",
+              "color": {"mode": "palette-classic"}
+            }
+          }
+        },
+        {
+          "title": "Cache Hit Ratio",
+          "type": "timeseries",
+          "gridPos": {"x": 8, "y": 16, "w": 8, "h": 8},
+          "datasource": "Prometheus",
+          "targets": [
+            {
+              "expr": "sum(rate(cache_hit_total{service=~\"$service\"}[5m])) by (service) / (sum(rate(cache_hit_total{service=~\"$service\"}[5m])) by (service) + sum(rate(cache_miss_total{service=~\"$service\"}[5m])) by (service)) * 100",
+              "legendFormat": "{{ service }}"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percent",
+              "min": 0,
+              "max": 100,
+              "color": {"mode": "palette-classic"}
+            }
+          }
+        },
+        {
+          "title": "HTTP Status Breakdown",
+          "type": "timeseries",
+          "gridPos": {"x": 16, "y": 16, "w": 8, "h": 8},
+          "datasource": "Prometheus",
+          "targets": [
+            {
+              "expr": "sum(rate(http_requests_total{service=~\"$service\"}[5m])) by (status)",
+              "legendFormat": "{{ status }}"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "reqps",
+              "color": {"mode": "palette-classic"}
+            }
+          }
+        }
+      ]
+    }
+  postgresql-dashboard.json: |
+    {
+      "title": "PostgreSQL Dashboard",
+      "version": 1,
+      "uid": "postgresql-dashboard",
+      "timezone": "browser",
+      "schemaVersion": 38,
+      "templating": {
+        "list": [
+          {
+            "name": "instance",
+            "type": "query",
+            "query": "label_values(pg_stat_database_numbackends{datname!~\"template.*|postgres\"}, instance)",
+            "refresh": 1,
+            "includeAll": true,
+            "multi": true
+          }
+        ]
+      },
+      "panels": [
+        {
+          "title": "Active Connections",
+          "type": "timeseries",
+          "gridPos": {"x": 0, "y": 0, "w": 12, "h": 8},
+          "datasource": "Prometheus",
+          "targets": [
+            {
+              "expr": "sum(pg_stat_database_numbackends{instance=~\"$instance\",datname!~\"template.*|postgres\"}) by (datname)",
+              "legendFormat": "{{ datname }}"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "none",
+              "color": {"mode": "palette-classic"}
+            }
+          }
+        },
+        {
+          "title": "Query Throughput",
+          "type": "timeseries",
+          "gridPos": {"x": 12, "y": 0, "w": 12, "h": 8},
+          "datasource": "Prometheus",
+          "targets": [
+            {
+              "expr": "sum(rate(pg_stat_database_xact_commit{instance=~\"$instance\"}[5m])) by (datname)",
+              "legendFormat": "{{ datname }} commits"
+            },
+            {
+              "expr": "sum(rate(pg_stat_database_xact_rollback{instance=~\"$instance\"}[5m])) by (datname)",
+              "legendFormat": "{{ datname }} rollbacks"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "cps",
+              "color": {"mode": "palette-classic"}
+            }
+          }
+        },
+        {
+          "title": "Cache Hit Ratio",
+          "type": "timeseries",
+          "gridPos": {"x": 0, "y": 8, "w": 12, "h": 8},
+          "datasource": "Prometheus",
+          "targets": [
+            {
+              "expr": "sum(rate(pg_stat_database_blks_hit{instance=~\"$instance\"}[5m])) by (datname) / (sum(rate(pg_stat_database_blks_hit{instance=~\"$instance\"}[5m])) by (datname) + sum(rate(pg_stat_database_blks_read{instance=~\"$instance\"}[5m])) by (datname)) * 100",
+              "legendFormat": "{{ datname }}"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percent",
+              "min": 0,
+              "max": 100,
+              "color": {"mode": "palette-classic"}
+            }
+          }
+        },
+        {
+          "title": "Deadlocks",
+          "type": "timeseries",
+          "gridPos": {"x": 12, "y": 8, "w": 12, "h": 8},
+          "datasource": "Prometheus",
+          "targets": [
+            {
+              "expr": "sum(rate(pg_stat_database_deadlocks{instance=~\"$instance\"}[5m])) by (datname)",
+              "legendFormat": "{{ datname }}"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "cps",
+              "color": {"mode": "palette-classic"}
+            }
+          }
+        },
+        {
+          "title": "Database Size",
+          "type": "timeseries",
+          "gridPos": {"x": 0, "y": 16, "w": 12, "h": 8},
+          "datasource": "Prometheus",
+          "targets": [
+            {
+              "expr": "pg_database_size_bytes{instance=~\"$instance\",datname!~\"template.*|postgres\"}",
+              "legendFormat": "{{ datname }}"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "bytes",
+              "color": {"mode": "palette-classic"}
+            }
+          }
+        },
+        {
+          "title": "Replication Lag",
+          "type": "timeseries",
+          "gridPos": {"x": 12, "y": 16, "w": 12, "h": 8},
+          "datasource": "Prometheus",
+          "targets": [
+            {
+              "expr": "pg_stat_replication_lag{instance=~\"$instance\"}",
+              "legendFormat": "{{ instance }}"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "bytes",
+              "color": {"mode": "palette-classic"}
+            }
+          }
+        }
+      ]
+    }
+  redis-dashboard.json: |
+    {
+      "title": "Redis Dashboard",
+      "version": 1,
+      "uid": "redis-dashboard",
+      "timezone": "browser",
+      "schemaVersion": 38,
+      "panels": [
+        {
+          "title": "Memory Usage",
+          "type": "timeseries",
+          "gridPos": {"x": 0, "y": 0, "w": 12, "h": 8},
+          "datasource": "Prometheus",
+          "targets": [
+            {
+              "expr": "redis_memory_used_bytes",
+              "legendFormat": "used"
+            },
+            {
+              "expr": "redis_memory_max_bytes",
+              "legendFormat": "max"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "bytes",
+              "color": {"mode": "palette-classic"}
+            }
+          }
+        },
+        {
+          "title": "Memory Usage (%)",
+          "type": "gauge",
+          "gridPos": {"x": 12, "y": 0, "w": 6, "h": 8},
+          "datasource": "Prometheus",
+          "targets": [
+            {
+              "expr": "redis_memory_used_bytes / redis_memory_max_bytes * 100"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percent",
+              "min": 0,
+              "max": 100,
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {"color": "green", "value": null},
+                  {"color": "yellow", "value": 70},
+                  {"color": "red", "value": 90}
+                ]
+              },
+              "color": {"mode": "thresholds"}
+            }
+          }
+        },
+        {
+          "title": "Evicted Keys",
+          "type": "stat",
+          "gridPos": {"x": 18, "y": 0, "w": 6, "h": 8},
+          "datasource": "Prometheus",
+          "targets": [
+            {
+              "expr": "rate(redis_evicted_keys_total[5m])"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "cps",
+              "color": {"mode": "palette-classic"}
+            }
+          }
+        },
+        {
+          "title": "Cache Hit Ratio",
+          "type": "timeseries",
+          "gridPos": {"x": 0, "y": 8, "w": 12, "h": 8},
+          "datasource": "Prometheus",
+          "targets": [
+            {
+              "expr": "rate(redis_keyspace_hits_total[5m]) / (rate(redis_keyspace_hits_total[5m]) + rate(redis_keyspace_misses_total[5m])) * 100",
+              "legendFormat": "hit ratio"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percent",
+              "min": 0,
+              "max": 100,
+              "color": {"mode": "palette-classic"}
+            }
+          }
+        },
+        {
+          "title": "Command Rate",
+          "type": "timeseries",
+          "gridPos": {"x": 12, "y": 8, "w": 12, "h": 8},
+          "datasource": "Prometheus",
+          "targets": [
+            {
+              "expr": "rate(redis_commands_total[5m])",
+              "legendFormat": "commands"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "cps",
+              "color": {"mode": "palette-classic"}
+            }
+          }
+        },
+        {
+          "title": "Connected Clients",
+          "type": "timeseries",
+          "gridPos": {"x": 0, "y": 16, "w": 8, "h": 8},
+          "datasource": "Prometheus",
+          "targets": [
+            {
+              "expr": "redis_connected_clients",
+              "legendFormat": "clients"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "none",
+              "color": {"mode": "palette-classic"}
+            }
+          }
+        },
+        {
+          "title": "Keyspace Hits vs Misses",
+          "type": "timeseries",
+          "gridPos": {"x": 8, "y": 16, "w": 8, "h": 8},
+          "datasource": "Prometheus",
+          "targets": [
+            {
+              "expr": "rate(redis_keyspace_hits_total[5m])",
+              "legendFormat": "hits"
+            },
+            {
+              "expr": "rate(redis_keyspace_misses_total[5m])",
+              "legendFormat": "misses"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "cps",
+              "color": {"mode": "palette-classic"}
+            }
+          }
+        },
+        {
+          "title": "Uptime",
+          "type": "stat",
+          "gridPos": {"x": 16, "y": 16, "w": 8, "h": 8},
+          "datasource": "Prometheus",
+          "targets": [
+            {
+              "expr": "redis_uptime_in_seconds"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "s",
+              "color": {"mode": "palette-classic"}
+            }
+          }
+        }
+      ]
+    }
+  elasticsearch-dashboard.json: |
+    {
+      "title": "Elasticsearch Dashboard",
+      "version": 1,
+      "uid": "elasticsearch-dashboard",
+      "timezone": "browser",
+      "schemaVersion": 38,
+      "panels": [
+        {
+          "title": "Cluster Health",
+          "type": "stat",
+          "gridPos": {"x": 0, "y": 0, "w": 4, "h": 6},
+          "datasource": "Prometheus",
+          "targets": [
+            {
+              "expr": "elasticsearch_cluster_health_status{color=\"green\"} or elasticsearch_cluster_health_status{color=\"yellow\"} * 2 or elasticsearch_cluster_health_status{color=\"red\"} * 3"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "thresholds"
+              },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {"color": "green", "value": null},
+                  {"color": "yellow", "value": 1.5},
+                  {"color": "red", "value": 2.5}
+                ]
+              }
+            }
+          }
+        },
+        {
+          "title": "Active Shards",
+          "type": "timeseries",
+          "gridPos": {"x": 4, "y": 0, "w": 10, "h": 6},
+          "datasource": "Prometheus",
+          "targets": [
+            {
+              "expr": "elasticsearch_cluster_health_active_shards",
+              "legendFormat": "active"
+            },
+            {
+              "expr": "elasticsearch_cluster_health_unassigned_shards",
+              "legendFormat": "unassigned"
+            },
+            {
+              "expr": "elasticsearch_cluster_health_relocating_shards",
+              "legendFormat": "relocating"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "color": {"mode": "palette-classic"}
+            }
+          }
+        },
+        {
+          "title": "Nodes",
+          "type": "stat",
+          "gridPos": {"x": 14, "y": 0, "w": 4, "h": 6},
+          "datasource": "Prometheus",
+          "targets": [
+            {
+              "expr": "elasticsearch_cluster_health_number_of_nodes",
+              "legendFormat": "nodes"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "color": {"mode": "palette-classic"}
+            }
+          }
+        },
+        {
+          "title": "Data Nodes",
+          "type": "stat",
+          "gridPos": {"x": 18, "y": 0, "w": 6, "h": 6},
+          "datasource": "Prometheus",
+          "targets": [
+            {
+              "expr": "elasticsearch_cluster_health_number_of_data_nodes",
+              "legendFormat": "data nodes"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "color": {"mode": "palette-classic"}
+            }
+          }
+        },
+        {
+          "title": "Query Rate",
+          "type": "timeseries",
+          "gridPos": {"x": 0, "y": 6, "w": 12, "h": 8},
+          "datasource": "Prometheus",
+          "targets": [
+            {
+              "expr": "sum(rate(elasticsearch_indices_search_query_total[5m]))",
+              "legendFormat": "queries"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "qps",
+              "color": {"mode": "palette-classic"}
+            }
+          }
+        },
+        {
+          "title": "Index Rate",
+          "type": "timeseries",
+          "gridPos": {"x": 12, "y": 6, "w": 12, "h": 8},
+          "datasource": "Prometheus",
+          "targets": [
+            {
+              "expr": "sum(rate(elasticsearch_indices_indexing_index_total[5m]))",
+              "legendFormat": "indexed"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "ips",
+              "color": {"mode": "palette-classic"}
+            }
+          }
+        },
+        {
+          "title": "Index Size",
+          "type": "timeseries",
+          "gridPos": {"x": 0, "y": 14, "w": 12, "h": 8},
+          "datasource": "Prometheus",
+          "targets": [
+            {
+              "expr": "sum(elasticsearch_indices_store_size_bytes)",
+              "legendFormat": "total"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "bytes",
+              "color": {"mode": "palette-classic"}
+            }
+          }
+        },
+        {
+          "title": "Document Count",
+          "type": "timeseries",
+          "gridPos": {"x": 12, "y": 14, "w": 12, "h": 8},
+          "datasource": "Prometheus",
+          "targets": [
+            {
+              "expr": "sum(elasticsearch_indices_docs_total)",
+              "legendFormat": "documents"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "color": {"mode": "palette-classic"}
+            }
+          }
+        },
+        {
+          "title": "Search Latency",
+          "type": "timeseries",
+          "gridPos": {"x": 0, "y": 22, "w": 12, "h": 8},
+          "datasource": "Prometheus",
+          "targets": [
+            {
+              "expr": "rate(elasticsearch_indices_search_query_time_seconds_total[5m]) / rate(elasticsearch_indices_search_query_total[5m])",
+              "legendFormat": "avg latency"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "s",
+              "color": {"mode": "palette-classic"}
+            }
+          }
+        },
+        {
+          "title": "Indexing Latency",
+          "type": "timeseries",
+          "gridPos": {"x": 12, "y": 22, "w": 12, "h": 8},
+          "datasource": "Prometheus",
+          "targets": [
+            {
+              "expr": "rate(elasticsearch_indices_indexing_index_time_seconds_total[5m]) / rate(elasticsearch_indices_indexing_index_total[5m])",
+              "legendFormat": "avg latency"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "s",
+              "color": {"mode": "palette-classic"}
+            }
+          }
+        }
+      ]
+    }
+  kong-dashboard.json: |
+    {
+      "title": "Kong Dashboard",
+      "version": 1,
+      "uid": "kong-dashboard",
+      "timezone": "browser",
+      "schemaVersion": 38,
+      "panels": [
+        {
+          "title": "Request Rate",
+          "type": "timeseries",
+          "gridPos": {"x": 0, "y": 0, "w": 12, "h": 8},
+          "datasource": "Prometheus",
+          "targets": [
+            {
+              "expr": "sum(rate(kong_http_requests_total[5m])) by (service)",
+              "legendFormat": "{{ service }}"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "reqps",
+              "color": {"mode": "palette-classic"}
+            }
+          }
+        },
+        {
+          "title": "Error Rate (5xx)",
+          "type": "timeseries",
+          "gridPos": {"x": 12, "y": 0, "w": 12, "h": 8},
+          "datasource": "Prometheus",
+          "targets": [
+            {
+              "expr": "sum(rate(kong_http_requests_total{code=~\"5..\"}[5m])) by (service)",
+              "legendFormat": "{{ service }}"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "reqps",
+              "color": {"mode": "palette-classic"}
+            }
+          }
+        },
+        {
+          "title": "Upstream Latency (P95)",
+          "type": "timeseries",
+          "gridPos": {"x": 0, "y": 8, "w": 12, "h": 8},
+          "datasource": "Prometheus",
+          "targets": [
+            {
+              "expr": "histogram_quantile(0.95, sum(rate(kong_latency_ms_bucket{type=\"upstream\"}[5m])) by (le, service))",
+              "legendFormat": "{{ service }}"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "ms",
+              "color": {"mode": "palette-classic"}
+            }
+          }
+        },
+        {
+          "title": "Kong Latency (P95)",
+          "type": "timeseries",
+          "gridPos": {"x": 12, "y": 8, "w": 12, "h": 8},
+          "datasource": "Prometheus",
+          "targets": [
+            {
+              "expr": "histogram_quantile(0.95, sum(rate(kong_latency_ms_bucket{type=\"kong\"}[5m])) by (le, service))",
+              "legendFormat": "{{ service }}"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "ms",
+              "color": {"mode": "palette-classic"}
+            }
+          }
+        },
+        {
+          "title": "Request Latency (P50 / P95 / P99)",
+          "type": "timeseries",
+          "gridPos": {"x": 0, "y": 16, "w": 12, "h": 8},
+          "datasource": "Prometheus",
+          "targets": [
+            {
+              "expr": "histogram_quantile(0.50, sum(rate(kong_latency_ms_bucket{type=\"request\"}[5m])) by (le))",
+              "legendFormat": "p50"
+            },
+            {
+              "expr": "histogram_quantile(0.95, sum(rate(kong_latency_ms_bucket{type=\"request\"}[5m])) by (le))",
+              "legendFormat": "p95"
+            },
+            {
+              "expr": "histogram_quantile(0.99, sum(rate(kong_latency_ms_bucket{type=\"request\"}[5m])) by (le))",
+              "legendFormat": "p99"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "ms",
+              "color": {"mode": "palette-classic"}
+            }
+          }
+        },
+        {
+          "title": "Status Code Breakdown",
+          "type": "timeseries",
+          "gridPos": {"x": 12, "y": 16, "w": 12, "h": 8},
+          "datasource": "Prometheus",
+          "targets": [
+            {
+              "expr": "sum(rate(kong_http_requests_total[5m])) by (code)",
+              "legendFormat": "{{ code }}"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "reqps",
+              "color": {"mode": "palette-classic"}
+            }
+          }
+        },
+        {
+          "title": "Bandwidth",
+          "type": "timeseries",
+          "gridPos": {"x": 0, "y": 24, "w": 12, "h": 8},
+          "datasource": "Prometheus",
+          "targets": [
+            {
+              "expr": "sum(rate(kong_bandwidth_bytes[5m])) by (type)",
+              "legendFormat": "{{ type }}"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "Bps",
+              "color": {"mode": "palette-classic"}
+            }
+          }
+        },
+        {
+          "title": "Active Connections",
+          "type": "timeseries",
+          "gridPos": {"x": 12, "y": 24, "w": 12, "h": 8},
+          "datasource": "Prometheus",
+          "targets": [
+            {
+              "expr": "kong_nginx_http_current_connections",
+              "legendFormat": "{{ state }}"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "color": {"mode": "palette-classic"}
+            }
+          }
+        }
+      ]
+    }

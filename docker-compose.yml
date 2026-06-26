@@ -265,7 +265,7 @@ services:
       - '--es.uri=http://elasticsearch:9200'
       - '--es.all'
       - '--es.indices'
-      - "--collector.clustersettings"
+      - '--collector.clustersettings'
       - '--es.indices_settings'
       - '--es.shards'
     ports:
@@ -316,6 +316,29 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
+  # ---------------- GRAFANA ----------------
+  grafana:
+    image: 185.120.221.119:8083/grafana/grafana:10.2.0
+    container_name: grafana
+    volumes:
+      - ./grafana/prometheus-datasource.yml:/etc/grafana/provisioning/datasources/prometheus-datasource.yml
+      - ./grafana/dashboard-provider.yml:/etc/grafana/provisioning/dashboards/dashboard-provider.yml
+      - ./grafana/dashboards:/var/lib/grafana/dashboards
+      - grafana_data:/var/lib/grafana
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Admin
+    ports:
+      - "3000:3000"
+    networks:
+      - wolfix-service-network
+    depends_on:
+      prometheus:
+        condition: service_started
+    restart: unless-stopped
+
   # ---------------- KIBANA ----------------
   kibana:
     image: 185.120.221.119:8083/kibana:8.11.0
@@ -334,6 +357,7 @@ services:
 # ---------------- VOLUMES ----------------
 volumes:
   prometheus_data:
+  grafana_data:
 
 # ---------------- NETWORKS ----------------
 networks:

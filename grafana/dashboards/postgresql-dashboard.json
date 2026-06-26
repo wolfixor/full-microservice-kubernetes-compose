@@ -1,0 +1,135 @@
+{
+  "title": "PostgreSQL Dashboard",
+  "version": 1,
+  "uid": "postgresql-dashboard",
+  "timezone": "browser",
+  "schemaVersion": 38,
+  "templating": {
+    "list": [
+      {
+        "name": "instance",
+        "type": "query",
+        "query": "label_values(pg_stat_database_numbackends{datname!~\"template.*|postgres\"}, instance)",
+        "refresh": 1,
+        "includeAll": true,
+        "multi": true
+      }
+    ]
+  },
+  "panels": [
+    {
+      "title": "Active Connections",
+      "type": "timeseries",
+      "gridPos": {"x": 0, "y": 0, "w": 12, "h": 8},
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "sum(pg_stat_database_numbackends{instance=~\"$instance\",datname!~\"template.*|postgres\"}) by (datname)",
+          "legendFormat": "{{ datname }}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "color": {"mode": "palette-classic"}
+        }
+      }
+    },
+    {
+      "title": "Query Throughput",
+      "type": "timeseries",
+      "gridPos": {"x": 12, "y": 0, "w": 12, "h": 8},
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "sum(rate(pg_stat_database_xact_commit{instance=~\"$instance\"}[5m])) by (datname)",
+          "legendFormat": "{{ datname }} commits"
+        },
+        {
+          "expr": "sum(rate(pg_stat_database_xact_rollback{instance=~\"$instance\"}[5m])) by (datname)",
+          "legendFormat": "{{ datname }} rollbacks"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "cps",
+          "color": {"mode": "palette-classic"}
+        }
+      }
+    },
+    {
+      "title": "Cache Hit Ratio",
+      "type": "timeseries",
+      "gridPos": {"x": 0, "y": 8, "w": 12, "h": 8},
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "sum(rate(pg_stat_database_blks_hit{instance=~\"$instance\"}[5m])) by (datname) / (sum(rate(pg_stat_database_blks_hit{instance=~\"$instance\"}[5m])) by (datname) + sum(rate(pg_stat_database_blks_read{instance=~\"$instance\"}[5m])) by (datname)) * 100",
+          "legendFormat": "{{ datname }}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "color": {"mode": "palette-classic"}
+        }
+      }
+    },
+    {
+      "title": "Deadlocks",
+      "type": "timeseries",
+      "gridPos": {"x": 12, "y": 8, "w": 12, "h": 8},
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "sum(rate(pg_stat_database_deadlocks{instance=~\"$instance\"}[5m])) by (datname)",
+          "legendFormat": "{{ datname }}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "cps",
+          "color": {"mode": "palette-classic"}
+        }
+      }
+    },
+    {
+      "title": "Database Size",
+      "type": "timeseries",
+      "gridPos": {"x": 0, "y": 16, "w": 12, "h": 8},
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "pg_database_size_bytes{instance=~\"$instance\",datname!~\"template.*|postgres\"}",
+          "legendFormat": "{{ datname }}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "color": {"mode": "palette-classic"}
+        }
+      }
+    },
+    {
+      "title": "Replication Lag",
+      "type": "timeseries",
+      "gridPos": {"x": 12, "y": 16, "w": 12, "h": 8},
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "pg_stat_replication_lag{instance=~\"$instance\"}",
+          "legendFormat": "{{ instance }}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "color": {"mode": "palette-classic"}
+        }
+      }
+    }
+  ]
+}
