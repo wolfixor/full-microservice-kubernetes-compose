@@ -1,4 +1,4 @@
-"""Main comment service application."""
+"""Main search service application."""
 
 import logging
 from contextlib import asynccontextmanager
@@ -6,9 +6,9 @@ from fastapi import FastAPI
 from .core.logger import setup_logging
 from .core.config import settings
 from .api.api import api_router
-from .db.session import sync_engine
-from .db.base import Base
+from .repositories.search_repository import SearchRepository
 from .core.redis_health import check_redis_health
+from .core.elasticsearch_config import close_elasticsearch_client
 
 # Setup logging
 setup_logging()
@@ -17,21 +17,20 @@ setup_logging()
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Lifespan context manager for startup and shutdown events."""
-    # Startup: Test database connection only
-    # Migrations are handled by docker-entrypoint.sh
+    # Startup: Initialize Elasticsearch index
+    logger = logging.getLogger(__name__)
     try:
-        from sqlalchemy import text
-        from .db.session import async_engine
-        async with async_engine.connect() as conn:
-            await conn.execute(text("SELECT 1"))
-            logging.info("Database connection verified")
+        repository = SearchRepository()
+        await repository.initialize_index()
+        logger.info("Elasticsearch index initialized")
     except Exception as e:
-        logging.warning(f"Database connection failed: {e}")
+        logger.warning(f"Elasticsearch initialization failed: {e}")
     
     yield
     
-    # Shutdown: Nothing special for now
-    logging.info("Comment service shutting down")
+    # Shutdown: Close connections
+    logger.info("Search service shutting down")
+    await close_elasticsearch_client()
 
 
 # Create FastAPI app
@@ -40,7 +39,7 @@ app = FastAPI(
     version=settings.APP_VERSION,
     docs_url="/docs",
     redoc_url="/redoc",
-    root_path="/comments",
+    root_path="/search",
     lifespan=lifespan
 )
 
@@ -65,7 +64,7 @@ async def readiness_check():
     # Determine overall readiness
     is_ready = redis_health.get("connected", False)
     
-    logger.info(f"Comment service readiness check: Redis {'healthy' if is_ready else 'unhealthy'}")
+    logger.info(f"Search service readiness check: Redis {'healthy' if is_ready else 'unhealthy'}")
     
     return {
         "status": "ready" if is_ready else "not_ready",

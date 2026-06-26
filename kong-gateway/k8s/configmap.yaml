@@ -75,6 +75,28 @@ data:
           flush_timeout: 2
           retry_count: 5
     
+    - name: search-service
+      url: http://search-service.task-api.svc.cluster.local/
+      routes:
+      - name: search-service-route
+        paths:
+        - /search
+        - /search/
+      plugins:
+      - name: rate-limiting
+        config:
+          minute: 60
+          policy: local
+          fault_tolerant: true
+      - name: http-log
+        config:
+          http_endpoint: http://kong-gateway.task-api.svc.cluster.local:8001/
+          method: POST
+          timeout: 1000
+          keepalive: 60000
+          flush_timeout: 2
+          retry_count: 5
+    
     # Global plugins
     plugins:
     - name: correlation-id

@@ -39,6 +39,7 @@ app = FastAPI(
     version=settings.APP_VERSION,
     docs_url="/docs",
     redoc_url="/redoc",
+    root_path="/users",
     lifespan=lifespan
 )
 

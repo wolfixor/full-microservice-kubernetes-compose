@@ -16,6 +16,11 @@ This project has been refactored into 3 independent microservices:
    - Manages comments on tasks
    - Endpoint: `/api/comments`
 
+4. **search-service** (Port 8004)
+   - Provides full-text search across tasks and comments
+   - Elasticsearch backend
+   - Endpoint: `/api/search`
+
 ## Common Features
 Each service includes:
 - FastAPI framework
@@ -56,6 +61,10 @@ docker build -t task-service .
 # Build comment-service
 cd ../comment-service
 docker build -t comment-service .
+
+# Build search-service
+cd ../search-service
+docker build -t search-service .
 ```
 
 ### 2. Deploy to Kubernetes
@@ -84,10 +93,14 @@ kubectl wait --for=condition=complete job/user-service-migrations -n task-api --
 kubectl wait --for=condition=complete job/task-service-migrations -n task-api --timeout=300s
 kubectl wait --for=condition=complete job/comment-service-migrations -n task-api --timeout=300s
 
+# Deploy Elasticsearch (required for search-service)
+kubectl apply -f k8s/elasticsearch-deployment.yaml
+
 # Deploy services (after migrations complete)
 kubectl apply -f user-service/k8s/deployment.yaml
 kubectl apply -f task-service/k8s/deployment.yaml
 kubectl apply -f comment-service/k8s/deployment.yaml
+kubectl apply -f search-service/k8s/deployment.yaml
 ```
 
 ### 3. Deploy Kong API Gateway
@@ -123,6 +136,10 @@ curl http://localhost:8002/api/tasks
 # Comment Service
 curl http://localhost:8003/health
 curl http://localhost:8003/api/comments
+
+# Search Service
+curl http://localhost:8004/health
+curl http://localhost:8004/api/search?q=example
 ```
 
 ### Through Kong API Gateway (external)
@@ -134,6 +151,7 @@ KONG_IP=$(kubectl get service kong-gateway -n task-api -o jsonpath='{.status.loa
 curl http://$KONG_IP/users
 curl http://$KONG_IP/tasks
 curl http://$KONG_IP/comments
+curl http://$KONG_IP/search?q=example
 ```
 
 ## Redis Caching Features
@@ -144,65 +162,126 @@ curl http://$KONG_IP/comments
 - **Graceful degradation**: Services work without Redis
 - **Performance optimized**: 5-minute TTL with LRU eviction
 
+## Search Service Features
+- **Full-text search**: Elasticsearch-powered search across tasks and comments
+- **Event ingestion simulation**: HTTP-based ingestion from task and comment services
+- **Flexible indexing**: Support for different document types (task, comment)
+- **Fuzzy matching**: Auto-fuzziness for better search results
+- **Multi-field search**: Searches across title, content, and description fields
+- **Result ranking**: Score-based ranking with recency bias
+
 ## Future Evolution
-This is Phase 2 with Redis caching. Future phases will add:
-- Redis clustering for high availability
-- Cache warming strategies
-- Cache analytics and monitoring
-- Inter-service communication
-- Message queues (Kafka/RabbitMQ)
-- Service discovery
-- Authentication/Authorization
-- Enhanced rate limiting
-- API analytics
+This is Phase 3 with Search Service. Future phases will add:
+- **Event-driven architecture**: Replace HTTP ingestion with Kafka/RabbitMQ
+- **Search analytics**: Track search patterns and popular queries
+- **Advanced search features**: Faceted search, filtering, autocomplete
+- **Search relevance tuning**: Custom ranking algorithms
+- **Search monitoring**: Integration with Elasticsearch monitoring tools
+- **Cross-service search**: Unified search across all microservices
+- **Search API enhancements**: Pagination, sorting, field selection
 
 
 
 ### the architecture at the end will be this:
 ```
 
+                                         Internet
+                                             |
+                                             |
+                                      +-------------+
+                                      |    Kong     |
+                                      |   Gateway   |
+                                      +-------------+
+                                             |
+      --------------------------------------------------------------------------------
+      |                    |                    |                    |                |
+      v                    v                    v                    v                v
 
-                    Internet
-                        |
-                        |
-                   +---------+
-                   |  Kong   |
-                   | Gateway |
-                   +---------+
-                        |
-      -----------------------------------------
-      |           |            |             |
-      v           v            v             v
++-------------+    +-------------+    +-------------+    +-------------+    +------------------+
+| User        |    | Task        |    | Comment     |    | Search      |    | Notification     |
+| Service     |    | Service     |    | Service     |    | Service     |    | Service          |
++-------------+    +-------------+    +-------------+    +-------------+    +------------------+
+      |                    |                    |                    |                |
+      |                    |                    |                    |                |
+      v                    v                    v                    v                |
++-------------+    +-------------+    +-------------+    +------------------+        |
+| PostgreSQL  |    | PostgreSQL  |    | PostgreSQL  |    | Elasticsearch    |        |
++-------------+    +-------------+    +-------------+    +------------------+        |
+      |                    |                    |                    ^                |
+      |                    |                    |                    |                |
+      ---------------------------------------------------------------------------------
+                                             |
+                                             v
+                                      +-------------+
+                                      |    Kafka    |
+                                      |  Cluster    |
+                                      +-------------+
+                                             |
+                    -------------------------------------------------
+                    |                       |                       |
+                    v                       v                       v
 
-+------------+ +------------+ +------------+ +------------+
-| User       | | Task       | | Comment    | | Search     |
-| Service    | | Service    | | Service    | | Service    |
-+------------+ +------------+ +------------+ +------------+
-      |              |              |             |
-      v              v              v             v
+             +-------------+       +------------------+    +------------------+
+             | Activity    |       | Notification     |    | Search Service   |
+             | Service     |       | Service          |    | Kafka Consumer   |
+             +-------------+       +------------------+    +------------------+
+                    |
+                    v
+             +-------------+
+             | PostgreSQL  |
+             | activity_db |
+             +-------------+
 
-+------------+ +------------+ +------------+ +----------------+
-| PostgreSQL | | PostgreSQL | | PostgreSQL | | Elasticsearch  |
-+------------+ +------------+ +------------+ +----------------+
 
-                     |
-                     v
-                 +---------+
-                 | Kafka   |
-                 +---------+
-                     |
-     ------------------------------------
-     |                                  |
-     v                                  v
+========================================================================================
+                               SHARED PLATFORM SERVICES
+========================================================================================
 
-+---------------+               +---------------+
-| Notification  |               | Activity      |
-| Service       |               | Service       |
-+---------------+               +---------------+
-                     |
-                     v
-                  +--------+
-                  | Redis  |
-                  +--------+
++------------------+      +------------------+      +------------------+
+| Redis Cluster    |      | Prometheus       |      | Grafana          |
+| Cache Layer      |      | Metrics          |      | Dashboards       |
++------------------+      +------------------+      +------------------+
+
++------------------+      +------------------+      +------------------+
+| Fluent Bit       | ---> | Elasticsearch    | ---> | Kibana           |
+| Log Collection   |      | Log Storage      |      | Log Analysis     |
++------------------+      +------------------+      +------------------+
+
++------------------+
+| Argo Rollouts    |
+| Canary/BlueGreen |
++------------------+
+
++------------------+
+| Velero           |
+| Backups          |
++------------------+
+
++------------------+
+| Rook-Ceph        |
+| Storage Layer    |
++------------------+
+
+
+========================================================================================
+                                   STORAGE LAYER
+========================================================================================
+
+                          +------------------------+
+                          |      Rook-Ceph         |
+                          | Distributed Storage    |
+                          +------------------------+
+                                       |
+            ----------------------------------------------------------------
+            |                    |                    |                     |
+            v                    v                    v                     v
+
+    PostgreSQL HA        Kafka Cluster       Elasticsearch       Backup Storage
+    (Primary+Replicas)   (3 Brokers)         Persistent Data     (Velero)
+
+            |
+            v
+
+      Redis Cluster
 
 ```
