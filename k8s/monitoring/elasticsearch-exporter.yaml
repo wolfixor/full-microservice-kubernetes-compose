@@ -24,7 +24,7 @@ spec:
           - "--es.indices"
           - "--es.indices_settings"
           - "--es.shards"
-          - "--es.collector.cluster_settings"
+          - "--collector.clustersettings"
         ports:
         - containerPort: 9114
           name: http
