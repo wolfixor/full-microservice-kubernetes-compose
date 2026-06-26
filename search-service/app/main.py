@@ -5,6 +5,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from .core.logger import setup_logging
 from .core.config import settings
+from .core.metrics import setup_metrics
 from .api.api import api_router
 from .repositories.search_repository import SearchRepository
 from .core.redis_health import check_redis_health
@@ -25,9 +26,9 @@ async def lifespan(app: FastAPI):
         logger.info("Elasticsearch index initialized")
     except Exception as e:
         logger.warning(f"Elasticsearch initialization failed: {e}")
-    
+
     yield
-    
+
     # Shutdown: Close connections
     logger.info("Search service shutting down")
     await close_elasticsearch_client()
@@ -46,6 +47,9 @@ app = FastAPI(
 # Include API router
 app.include_router(api_router, prefix="/api")
 
+# Setup Prometheus metrics
+setup_metrics(app)
+
 
 @app.get("/health")
 async def health_check():
@@ -57,15 +61,15 @@ async def health_check():
 async def readiness_check():
     """Readiness check endpoint with Redis health check."""
     logger = logging.getLogger(__name__)
-    
+
     # Check Redis health
     redis_health = await check_redis_health()
-    
+
     # Determine overall readiness
     is_ready = redis_health.get("connected", False)
-    
+
     logger.info(f"Search service readiness check: Redis {'healthy' if is_ready else 'unhealthy'}")
-    
+
     return {
         "status": "ready" if is_ready else "not_ready",
         "service": settings.APP_NAME,

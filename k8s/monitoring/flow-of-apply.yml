@@ -1,0 +1,13 @@
+# kubectl create -f k8s/monitoring/namespace.yaml
+# kubectl create -f k8s/monitoring/prometheus-rbac.yaml
+# Install Prometheus Operator (if using ServiceMonitors):
+# helm install prometheus prometheus-community/kube-prometheus-stack -n monitoring
+# kubectl create -f k8s/monitoring/postgres-exporter.yaml
+# kubectl create -f k8s/monitoring/redis-exporter.yaml
+# kubectl create -f k8s/monitoring/elasticsearch-exporter.yaml
+# kubectl create -f k8s/monitoring/kube-state-metrics.yaml
+# kubectl create -f k8s/monitoring/prometheus-config.yaml
+# kubectl create -f k8s/monitoring/prometheus-deployment.yaml
+# Apply updated Kong config:
+# kubectl apply -f kong-gateway/k8s/configmap.yaml
+# Redeploy Kong to pick up the plugin

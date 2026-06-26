@@ -10,6 +10,7 @@ from sqlalchemy.exc import IntegrityError
 from ..models.task import Task, TaskStatus
 from ..core.redis_config import redis_settings
 from ..core.redis_utils import RedisCache, create_redis_client
+from ..core.metrics import cache_hit_counter, cache_miss_counter
 
 
 class CachedTaskRepository:
@@ -62,6 +63,7 @@ class CachedTaskRepository:
         cached_data = await self.redis_cache.get(cache_key)
         
         if cached_data:
+            cache_hit_counter.labels(service="task-service").inc()
             # Convert cached dict back to Task model
             # Parse datetime strings back to datetime objects
             if cached_data.get('created_at'):
@@ -70,6 +72,7 @@ class CachedTaskRepository:
                 cached_data['updated_at'] = datetime.fromisoformat(cached_data['updated_at'])
             return Task(**cached_data)
         
+        cache_miss_counter.labels(service="task-service").inc()
         # Cache miss - query database
         result = await self.db.execute(
             select(Task).where(Task.id == task_id)

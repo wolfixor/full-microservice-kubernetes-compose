@@ -220,7 +220,103 @@ services:
       - wolfix-service-network
     restart: unless-stopped
 
-  # Optional: Kibana for Elasticsearch visualization
+  # ---------------- PROMETHEUS ----------------
+  prometheus:
+    image: 185.120.221.119:8083/prom/prometheus:v2.48.0
+    container_name: prometheus
+    volumes:
+      - ./prometheus:/etc/prometheus
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=30d'
+      - '--storage.tsdb.retention.size=8GB'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+      - '--web.enable-lifecycle'
+    ports:
+      - '9090:9090'
+    networks:
+      - wolfix-service-network
+    restart: unless-stopped
+
+  # ---------------- REDIS EXPORTER ----------------
+  redis-exporter:
+    image: 185.120.221.119:8083/oliver006/redis_exporter:v1.56.0
+    container_name: redis-exporter
+    command:
+      - '--redis.addr=redis://redis:6379'
+      - '--check-keys=*'
+    ports:
+      - '9121:9121'
+    networks:
+      - wolfix-service-network
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ---------------- ELASTICSEARCH EXPORTER ----------------
+  elasticsearch-exporter:
+    image: 185.120.221.119:8083/prometheuscommunity/elasticsearch-exporter:v1.6.0
+    container_name: elasticsearch-exporter
+    command:
+      - '--es.uri=http://elasticsearch:9200'
+      - '--es.all'
+      - '--es.indices'
+      - "--collector.clustersettings"
+      - '--es.indices_settings'
+      - '--es.shards'
+    ports:
+      - '9114:9114'
+    networks:
+      - wolfix-service-network
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ---------------- POSTGRES EXPORTERS ----------------
+  postgres-exporter-user:
+    image: 185.120.221.119:8083/prometheuscommunity/postgres-exporter:v0.14.0
+    container_name: postgres-exporter-user
+    environment:
+      DATA_SOURCE_NAME: "postgresql://postgres:postgres@user-service-db:5432/user_db?sslmode=disable"
+    ports:
+      - '9187:9187'
+    networks:
+      - wolfix-service-network
+    depends_on:
+      user-service-db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  postgres-exporter-task:
+    image: 185.120.221.119:8083/prometheuscommunity/postgres-exporter:v0.14.0
+    container_name: postgres-exporter-task
+    environment:
+      DATA_SOURCE_NAME: "postgresql://postgres:postgres@task-service-db:5432/task_db?sslmode=disable"
+    networks:
+      - wolfix-service-network
+    depends_on:
+      task-service-db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  postgres-exporter-comment:
+    image: 185.120.221.119:8083/prometheuscommunity/postgres-exporter:v0.14.0
+    container_name: postgres-exporter-comment
+    environment:
+      DATA_SOURCE_NAME: "postgresql://postgres:postgres@comment-service-db:5432/comment_db?sslmode=disable"
+    networks:
+      - wolfix-service-network
+    depends_on:
+      comment-service-db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ---------------- KIBANA ----------------
   kibana:
     image: 185.120.221.119:8083/kibana:8.11.0
     container_name: kibana
@@ -234,6 +330,10 @@ services:
       elasticsearch:
         condition: service_healthy
     restart: unless-stopped
+
+# ---------------- VOLUMES ----------------
+volumes:
+  prometheus_data:
 
 # ---------------- NETWORKS ----------------
 networks:

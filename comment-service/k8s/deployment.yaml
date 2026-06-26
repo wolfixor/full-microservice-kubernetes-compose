@@ -74,10 +74,15 @@ metadata:
   namespace: task-api
   labels:
     app: comment-service
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "8000"
+    prometheus.io/path: "/metrics"
 spec:
   selector:
     app: comment-service
   ports:
-  - port: 80
+  - name: http
+    port: 80
     targetPort: 8000
   type: ClusterIP

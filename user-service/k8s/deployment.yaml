@@ -75,10 +75,15 @@ metadata:
   namespace: task-api
   labels:
     app: user-service
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "8000"
+    prometheus.io/path: "/metrics"
 spec:
   selector:
     app: user-service
   ports:
-  - port: 80
+  - name: http
+    port: 80
     targetPort: 8000
   type: ClusterIP

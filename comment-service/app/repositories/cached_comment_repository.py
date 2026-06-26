@@ -10,6 +10,7 @@ from sqlalchemy.exc import IntegrityError
 from ..models.comment import Comment
 from ..core.redis_config import redis_settings
 from ..core.redis_utils import RedisCache, create_redis_client
+from ..core.metrics import cache_hit_counter, cache_miss_counter
 
 
 class CachedCommentRepository:
@@ -61,6 +62,7 @@ class CachedCommentRepository:
         cached_data = await self.redis_cache.get(cache_key)
         
         if cached_data:
+            cache_hit_counter.labels(service="comment-service").inc()
             # Convert cached dict back to Comment model
             # Parse datetime strings back to datetime objects
             if cached_data.get('created_at'):
@@ -69,6 +71,7 @@ class CachedCommentRepository:
                 cached_data['updated_at'] = datetime.fromisoformat(cached_data['updated_at'])
             return Comment(**cached_data)
         
+        cache_miss_counter.labels(service="comment-service").inc()
         # Cache miss - query database
         result = await self.db.execute(
             select(Comment).where(Comment.id == comment_id)
