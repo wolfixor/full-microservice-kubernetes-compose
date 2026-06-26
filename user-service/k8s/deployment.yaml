@@ -53,6 +53,8 @@ spec:
           value: "user"
         - name: CACHE_EXPIRE_SECONDS
           value: "300"
+        - name: ROOT_PATH
+          value: "/users"
         livenessProbe:
           httpGet:
             path: /health

@@ -53,6 +53,8 @@ spec:
           value: "comment"
         - name: CACHE_EXPIRE_SECONDS
           value: "300"
+        - name: ROOT_PATH
+          value: "/comments"
         livenessProbe:
           httpGet:
             path: /health

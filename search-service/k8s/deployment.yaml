@@ -62,6 +62,8 @@ spec:
               value: "0.0.0.0"
             - name: PORT
               value: "8000"
+            - name: ROOT_PATH
+              value: "/search"
           resources:
             requests:
               cpu: 200m 

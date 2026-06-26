@@ -48,6 +48,4 @@ dist/
 # Local databases
 *.db
 *.sqlite3
-
 place-data/
-place-data

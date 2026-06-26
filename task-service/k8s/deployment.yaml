@@ -53,6 +53,8 @@ spec:
           value: "task"
         - name: CACHE_EXPIRE_SECONDS
           value: "300"
+        - name: ROOT_PATH
+          value: "/tasks"
         livenessProbe:
           httpGet:
             path: /health

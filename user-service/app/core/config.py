@@ -17,6 +17,9 @@ class Settings(BaseSettings):
     POSTGRES_USER: str = ""
     POSTGRES_PASSWORD: str = ""
     
+    # Root path for reverse proxy (Kong)
+    ROOT_PATH: str = ""
+
     # Server
     HOST: str = "0.0.0.0"
     PORT: int = 8001

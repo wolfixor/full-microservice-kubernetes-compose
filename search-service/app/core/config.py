@@ -24,6 +24,9 @@ class Settings(BaseSettings):
     TASK_SERVICE_URL: str = "http://task-service:8000"
     COMMENT_SERVICE_URL: str = "http://comment-service:8000"
     
+    # Root path for reverse proxy (Kong)
+    ROOT_PATH: str = ""
+
     # Server
     HOST: str = "0.0.0.0"
     PORT: int = 8000
