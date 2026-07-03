@@ -1,188 +1,192 @@
-# Microservices Architecture
+# Production-Style Microservices Platform on Kubernetes
 
-This project has been refactored into 3 independent microservices:
+A complete, production-style microservice architecture built to demonstrate how real systems are designed, deployed, and operated: independent FastAPI services with isolated databases, an API gateway, cache-aside Redis caching, full-text search, database migration jobs, and a full observability stack (metrics, dashboards, and centralized logging) — deployable to Kubernetes/K3s or Docker Compose.
 
-## Services Overview
+> Most of my production work (map.ir, Iran Post GNAF — ~260 microservices across 25 nodes) lives in private repositories. This project is the public window into how I design and run infrastructure.
 
-1. **user-service** (Port 8001)
-   - Manages user accounts and profiles
-   - Endpoint: `/api/users`
+## Architecture
 
-2. **task-service** (Port 8002)
-   - Manages tasks with status tracking
-   - Endpoint: `/api/tasks`
+```mermaid
+flowchart TB
+    Internet((Internet)) --> Kong[Kong API Gateway]
 
-3. **comment-service** (Port 8003)
-   - Manages comments on tasks
-   - Endpoint: `/api/comments`
+    Kong --> US[User Service :8001]
+    Kong --> TS[Task Service :8002]
+    Kong --> CS[Comment Service :8003]
+    Kong --> SS[Search Service :8004]
 
-4. **search-service** (Port 8004)
-   - Provides full-text search across tasks and comments
-   - Elasticsearch backend
-   - Endpoint: `/api/search`
+    US --> UDB[(PostgreSQL user_db)]
+    TS --> TDB[(PostgreSQL task_db)]
+    CS --> CDB[(PostgreSQL comment_db)]
+    SS --> ES[(Elasticsearch)]
 
-## Common Features
-Each service includes:
-- FastAPI framework
-- `/health` endpoint for liveness probes
-- `/ready` endpoint for readiness probes
-- Structured logging
-- Environment-based configuration
-- Dockerfile for containerization
-- Kubernetes manifests for deployment
+    US -.cache-aside.-> R[(Redis)]
+    TS -.cache-aside.-> R
+    CS -.cache-aside.-> R
 
-## Architecture Principles
-- **Simple CRUD only**: No complex business logic yet
-- **No inter-service communication**: Services are independent
-- **Separate databases**: Each service has its own PostgreSQL instance
-- **Redis caching**: Cache-aside pattern with Redis for performance
-- **Independently deployable**: Each service can be deployed separately
-- **API Gateway**: Kong gateway routes external traffic to appropriate services
+    TS -.event ingestion.-> SS
+    CS -.event ingestion.-> SS
 
-## Caching Strategy
-- **Cache-aside pattern**: Read from Redis first, fall back to PostgreSQL
-- **Redis deployment**: Single Redis instance with separate databases per service
-- **Cache invalidation**: Automatic on update/delete operations
-- **Health checks**: Redis health included in service readiness checks
-- **Graceful degradation**: Services operate without Redis if unavailable
-
-## Deployment Instructions
-
-### 1. Build Docker Images
-```bash
-# Build user-service
-cd user-service
-docker build -t user-service .
-
-# Build task-service
-cd ../task-service
-docker build -t task-service .
-
-# Build comment-service
-cd ../comment-service
-docker build -t comment-service .
-
-# Build search-service
-cd ../search-service
-docker build -t search-service .
+    subgraph Observability
+        P[Prometheus] --> G[Grafana]
+        FB[Fluent Bit] --> LES[(Elasticsearch logs)] --> K[Kibana]
+        EXP[Exporters: node, redis, elasticsearch, one postgres-exporter per DB] --> P
+    end
 ```
 
-### 2. Deploy to Kubernetes
+**Request flow:** external traffic enters through Kong, which routes to the appropriate service. Each service owns its data (database-per-service), reads through Redis with a cache-aside pattern, and exposes `/health` and `/ready` probes consumed by Kubernetes. Task and comment events are ingested into Elasticsearch for full-text search. Every component ships metrics to Prometheus and logs through Fluent Bit into Elasticsearch/Kibana.
+
+## What This Project Demonstrates
+
+- **Database-per-service isolation** — each service has its own PostgreSQL instance; no shared schemas.
+- **Safe schema migrations** — Alembic migrations run as Kubernetes Jobs *before* service rollout, gated with `kubectl wait`.
+- **Cache-aside caching** — Redis read-through with automatic invalidation on writes, per-service Redis databases, 5-minute TTL with LRU eviction, and graceful degradation when Redis is down.
+- **API gateway routing** — Kong terminates external traffic and routes per path.
+- **Kubernetes-native health** — liveness (`/health`) and readiness (`/ready`) probes on every service; Redis health is part of readiness.
+- **Full observability** — Prometheus scraping node, Redis, Elasticsearch, and per-database Postgres exporters; provisioned Grafana dashboards; centralized logging with Fluent Bit → Elasticsearch → Kibana.
+- **Two deployment targets** — the same system runs on Kubernetes/K3s (manifests per service) or locally via a single `docker-compose.yml` (20 containers).
+
+## Services
+
+| Service | Port | Responsibility | Data Store |
+|---|---|---|---|
+| user-service | 8001 | User accounts and profiles (`/api/users`) | PostgreSQL + Redis |
+| task-service | 8002 | Tasks with status tracking (`/api/tasks`) | PostgreSQL + Redis |
+| comment-service | 8003 | Comments on tasks (`/api/comments`) | PostgreSQL + Redis |
+| search-service | 8004 | Full-text search across tasks and comments (`/api/search`) | Elasticsearch |
+
+Every service is FastAPI-based with structured logging, environment-based configuration, its own Dockerfile, and its own Kubernetes manifests — independently buildable and deployable.
+
+### Search Service
+
+- Elasticsearch-powered full-text search across tasks and comments
+- Multi-field matching (title, content, description) with auto-fuzziness
+- Score-based ranking with recency bias
+- HTTP-based event ingestion from task and comment services (Kafka replaces this in the roadmap)
+
+## Quick Start — Docker Compose
+
+The fastest way to run the entire platform, including the observability stack:
+
 ```bash
-# Create namespace (if not exists)
-kubectl apply -f ../k8s/namespace.yaml
+docker compose up -d
+```
 
-# Create PostgreSQL secret (includes Redis password)
-kubectl apply -f ../k8s/secret.yaml
+This brings up all four services, their PostgreSQL instances, Redis, Elasticsearch, Kong-equivalent routing, Prometheus with all exporters, Grafana, Kibana, and Fluent Bit.
 
-# Deploy Redis cache
-kubectl apply -f ../k8s/redis-deployment.yaml
+## Deploying to Kubernetes
 
-# Deploy PostgreSQL databases
+### 1. Build the images
+
+```bash
+for svc in user-service task-service comment-service search-service; do
+  docker build -t $svc ./$svc
+done
+```
+
+### 2. Core infrastructure
+
+```bash
+kubectl apply -f k8s/namespace.yaml
+kubectl apply -f k8s/secret.yaml               # DB + Redis credentials
+kubectl apply -f k8s/redis-deployment.yaml
+kubectl apply -f k8s/elasticsearch-deployment.yaml
+```
+
+### 3. Databases and migrations
+
+Migrations run as Jobs and must complete before the services start:
+
+```bash
 kubectl apply -f user-service/k8s/postgres.yaml
 kubectl apply -f task-service/k8s/postgres.yaml
 kubectl apply -f comment-service/k8s/postgres.yaml
 
-# Run database migrations (IMPORTANT: Run before services)
 kubectl apply -f user-service/k8s/migration-job.yaml
 kubectl apply -f task-service/k8s/migration-job.yaml
 kubectl apply -f comment-service/k8s/migration-job.yaml
 
-# Wait for migrations to complete
-kubectl wait --for=condition=complete job/user-service-migrations -n task-api --timeout=300s
-kubectl wait --for=condition=complete job/task-service-migrations -n task-api --timeout=300s
+kubectl wait --for=condition=complete job/user-service-migrations    -n task-api --timeout=300s
+kubectl wait --for=condition=complete job/task-service-migrations    -n task-api --timeout=300s
 kubectl wait --for=condition=complete job/comment-service-migrations -n task-api --timeout=300s
+```
 
-# Deploy Elasticsearch (required for search-service)
-kubectl apply -f k8s/elasticsearch-deployment.yaml
+### 4. Services and gateway
 
-# Deploy services (after migrations complete)
+```bash
 kubectl apply -f user-service/k8s/deployment.yaml
 kubectl apply -f task-service/k8s/deployment.yaml
 kubectl apply -f comment-service/k8s/deployment.yaml
 kubectl apply -f search-service/k8s/deployment.yaml
-```
 
-### 3. Deploy Kong API Gateway
-```bash
-# Deploy Kong gateway for external access
 kubectl apply -f kong-gateway/k8s/
 ```
 
-### 4. Verify Deployment
+### 5. Verify
+
 ```bash
-# Check pods
 kubectl get pods -n task-api
-
-# Check services
-kubectl get svc -n task-api
-
-# Get Kong external IP
-kubectl get service kong-gateway -n task-api
+kubectl get svc  -n task-api
+kubectl get service kong-gateway -n task-api   # external IP
 ```
 
-## Testing the Services
+## Testing
 
-### Direct Access (internal)
+Through the gateway (external path):
+
 ```bash
-# User Service
-curl http://localhost:8001/health
-curl http://localhost:8001/api/users
-
-# Task Service
-curl http://localhost:8002/health
-curl http://localhost:8002/api/tasks
-
-# Comment Service
-curl http://localhost:8003/health
-curl http://localhost:8003/api/comments
-
-# Search Service
-curl http://localhost:8004/health
-curl http://localhost:8004/api/search?q=example
-```
-
-### Through Kong API Gateway (external)
-```bash
-# Get Kong external IP
 KONG_IP=$(kubectl get service kong-gateway -n task-api -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
 
-# Test routes through Kong
 curl http://$KONG_IP/users
 curl http://$KONG_IP/tasks
 curl http://$KONG_IP/comments
-curl http://$KONG_IP/search?q=example
+curl "http://$KONG_IP/search?q=example"
 ```
 
-## Redis Caching Features
-- **Cache-aside pattern**: Intelligent read-through caching
-- **Redis health monitoring**: Integrated into service readiness
-- **Database separation**: Each service uses different Redis database
-- **Cache invalidation**: Automatic on data updates
-- **Graceful degradation**: Services work without Redis
-- **Performance optimized**: 5-minute TTL with LRU eviction
+Direct service access (internal):
 
-## Search Service Features
-- **Full-text search**: Elasticsearch-powered search across tasks and comments
-- **Event ingestion simulation**: HTTP-based ingestion from task and comment services
-- **Flexible indexing**: Support for different document types (task, comment)
-- **Fuzzy matching**: Auto-fuzziness for better search results
-- **Multi-field search**: Searches across title, content, and description fields
-- **Result ranking**: Score-based ranking with recency bias
+```bash
+curl http://localhost:8001/health && curl http://localhost:8001/api/users
+curl http://localhost:8002/health && curl http://localhost:8002/api/tasks
+curl http://localhost:8003/health && curl http://localhost:8003/api/comments
+curl http://localhost:8004/health && curl "http://localhost:8004/api/search?q=example"
+```
 
-## Future Evolution
-This is Phase 3 with Search Service. Future phases will add:
-- **Event-driven architecture**: Replace HTTP ingestion with Kafka/RabbitMQ
-- **Search analytics**: Track search patterns and popular queries
-- **Advanced search features**: Faceted search, filtering, autocomplete
-- **Search relevance tuning**: Custom ranking algorithms
-- **Search monitoring**: Integration with Elasticsearch monitoring tools
-- **Cross-service search**: Unified search across all microservices
-- **Search API enhancements**: Pagination, sorting, field selection
+## Observability
 
+- **Metrics:** Prometheus scrapes node-exporter, redis-exporter, elasticsearch-exporter, and a postgres-exporter per database.
+- **Dashboards:** Grafana with provisioned datasources and dashboards (`grafana/`).
+- **Logs:** Fluent Bit collects container logs and ships them to Elasticsearch; Kibana provides analysis (`conf/`, see [docs/LOG_FLOW.md](docs/LOG_FLOW.md)).
 
+## Repository Layout
 
-### the architecture at the end will be this:
+```
+├── user-service/       # FastAPI service + Dockerfile + k8s manifests
+├── task-service/
+├── comment-service/
+├── search-service/
+├── kong-gateway/       # Kong API gateway manifests
+├── k8s/                # Namespace, secrets, Redis, Elasticsearch, monitoring
+├── prometheus/         # Scrape configuration
+├── grafana/            # Datasources + provisioned dashboards
+├── conf/               # Fluent Bit + Kibana configuration
+├── redis/              # Caching cookbook + utilities
+├── docs/               # Deployment guides, migration guides, cookbooks
+└── docker-compose.yml  # Full local stack (20 containers)
+```
+
+The [docs/](docs/) folder contains detailed guides: deployment, environment configuration, database architecture, Redis caching patterns, log flow, and migration strategy.
+
+## Roadmap — Target Architecture
+
+The next phase replaces HTTP event ingestion with an event-driven backbone and adds platform-grade services:
+
+- **Kafka** event bus replacing HTTP ingestion (notification, activity, and search consumers)
+- **Argo Rollouts** for canary and blue/green deployments
+- **Velero** backups and **Rook-Ceph** distributed storage
+- PostgreSQL HA (primary + replicas), 3-broker Kafka, Redis cluster
+- Search analytics, faceted search, autocomplete, relevance tuning
+
 ```
 
                                          Internet
@@ -285,3 +289,8 @@ This is Phase 3 with Search Service. Future phases will add:
       Redis Cluster
 
 ```
+
+## Author
+
+**Mahdi Lotfilo** — DevOps Engineer
+GitHub: [github.com/wolfixor](https://github.com/wolfixor) · Email: wolfix007.xiflow@gmail.com
