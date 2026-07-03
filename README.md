@@ -20,12 +20,12 @@ flowchart TB
     CS --> CDB[(PostgreSQL comment_db)]
     SS --> ES[(Elasticsearch)]
 
-    US -.cache-aside.-> R[(Redis)]
-    TS -.cache-aside.-> R
-    CS -.cache-aside.-> R
+    US -.-> R[(Redis<br/>cache-aside)]
+    TS -.-> R
+    CS -.-> R
 
-    TS -.event ingestion.-> SS
-    CS -.event ingestion.-> SS
+    TS -. task events .-> SS
+    CS -. comment events .-> SS
 
     subgraph Observability
         P[Prometheus] --> G[Grafana]
