@@ -29,12 +29,21 @@ flowchart TB
 
     subgraph Observability
         P[Prometheus] --> G[Grafana]
-        FB[Fluent Bit] --> LES[(Elasticsearch logs)] --> K[Kibana]
+        Kong -. http-log plugin .-> KLR[Kong Log Receiver]
+        Kong -. stdout .-> FB[Fluent Bit DaemonSet]
+        US -. stdout JSON logs .-> FB
+        TS -. stdout JSON logs .-> FB
+        CS -. stdout JSON logs .-> FB
+        SS -. stdout JSON logs .-> FB
+        KLR -. stdout JSON logs .-> FB
+        FB --> LES[(Elasticsearch log store)] --> K[Kibana]
         EXP[Exporters: node, redis, elasticsearch, one postgres-exporter per DB] --> P
     end
 ```
 
-**Request flow:** external traffic enters through Kong, which routes to the appropriate service. Each service owns its data (database-per-service), reads through Redis with a cache-aside pattern, and exposes `/health` and `/ready` probes consumed by Kubernetes. Task and comment events are ingested into Elasticsearch for full-text search. Every component ships metrics to Prometheus and logs through Fluent Bit into Elasticsearch/Kibana.
+**Request flow:** external traffic enters through Kong, which routes to the appropriate service. Each service owns its data (database-per-service), reads through Redis with a cache-aside pattern, and exposes `/health` and `/ready` probes consumed by Kubernetes. Task and comment events are ingested into Elasticsearch for full-text search.
+
+**Log flow:** application containers and Kong write logs to stdout/stderr. Kong also uses the `http-log` plugin to send richer request events to a small Kong Log Receiver, which prints structured JSON to stdout. Fluent Bit runs as a DaemonSet, tails `/var/log/containers/*.log` on every node, enriches records with Kubernetes metadata, and ships them to Elasticsearch for Kibana analysis.
 
 ## What This Project Demonstrates
 
@@ -43,7 +52,7 @@ flowchart TB
 - **Cache-aside caching** — Redis read-through with automatic invalidation on writes, per-service Redis databases, 5-minute TTL with LRU eviction, and graceful degradation when Redis is down.
 - **API gateway routing** — Kong terminates external traffic and routes per path.
 - **Kubernetes-native health** — liveness (`/health`) and readiness (`/ready`) probes on every service; Redis health is part of readiness.
-- **Full observability** — Prometheus scraping node, Redis, Elasticsearch, and per-database Postgres exporters; provisioned Grafana dashboards; centralized logging with Fluent Bit → Elasticsearch → Kibana.
+- **Full observability** — Prometheus scraping node, Redis, Elasticsearch, and per-database Postgres exporters; provisioned Grafana dashboards; centralized logging with Fluent Bit, Kong `http-log`, Elasticsearch, and Kibana.
 - **Two deployment targets** — the same system runs on Kubernetes/K3s (manifests per service) or locally via a single `docker-compose.yml` (20 containers).
 
 ## Services
@@ -156,7 +165,7 @@ curl http://localhost:8004/health && curl "http://localhost:8004/api/search?q=ex
 
 - **Metrics:** Prometheus scrapes node-exporter, redis-exporter, elasticsearch-exporter, and a postgres-exporter per database.
 - **Dashboards:** Grafana with provisioned datasources and dashboards (`grafana/`).
-- **Logs:** Fluent Bit collects container logs and ships them to Elasticsearch; Kibana provides analysis (`conf/`, see [docs/LOG_FLOW.md](docs/LOG_FLOW.md)).
+- **Logs:** Fluent Bit runs as a DaemonSet, collects container stdout/stderr logs, enriches them with Kubernetes metadata, and ships them to Elasticsearch. Kong request logs also flow through the Kong `http-log` plugin and Kong Log Receiver before Fluent Bit collects them. Kibana provides analysis (`conf/`, see [docs/LOG_FLOW.md](docs/LOG_FLOW.md) and [docs/LOG_FLOW_SHORT.md](docs/LOG_FLOW_SHORT.md)).
 
 ## Repository Layout
 
@@ -293,4 +302,4 @@ The next phase replaces HTTP event ingestion with an event-driven backbone and a
 ## Author
 
 **Mahdi Lotfilo** — DevOps Engineer
-GitHub: [github.com/wolfixor](https://github.com/wolfixor) · Email: wolfix007.xiflow@gmail.com
+GitHub: [github.com/wolfixor](https://github.com/wolfixor) · Email: wolfix.xiflow@gmail.com
