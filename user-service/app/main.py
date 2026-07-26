@@ -6,6 +6,7 @@ from fastapi import FastAPI
 from .core.logger import setup_logging
 from .core.config import settings
 from .core.metrics import setup_metrics
+from .core.log_context import LogContextMiddleware
 from .api.api import api_router
 from .db.session import sync_engine, async_engine
 from .db.base import Base
@@ -43,6 +44,9 @@ app = FastAPI(
     root_path=settings.ROOT_PATH,
     lifespan=lifespan
 )
+
+# Attach logging context middleware (extracts Kong-Request-ID)
+app.add_middleware(LogContextMiddleware)
 
 # Include API router
 app.include_router(api_router, prefix="/api")

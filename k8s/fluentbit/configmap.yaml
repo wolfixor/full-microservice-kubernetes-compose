@@ -1,0 +1,166 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: fluentbit-config
+  namespace: task-api
+data:
+  # ──────────────────────────────── Main Fluent Bit Config ────────────────────────────────
+  fluent-bit.conf: |
+    [SERVICE]
+        flush                    1
+        log_level                info
+        parsers_file             parsers.conf
+        HTTP_Server              On
+        HTTP_Listen              0.0.0.0
+        HTTP_Port                2020
+
+    [INPUT]
+        name                     tail
+        path                     /var/log/containers/*.log
+        multiline.parser         docker, cri
+        tag                      kube.*
+        mem_buf_limit            50MB
+        skip_long_lines          on
+        refresh_interval         5
+        DB                       /var/fluent-bit/pos.db
+        DB.Sync                  Normal
+
+    # ─── Kubernetes metadata enrichment ───
+    [FILTER]
+        name                     kubernetes
+        match                    kube.*
+        kube_url                 https://kubernetes.default.svc.cluster.local:443
+        kube_token_file          /var/run/secrets/kubernetes.io/serviceaccount/token
+        kube_ca_file             /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+        merge_log                on
+        keep_log                 false
+        k8s-logging.parser       on
+        k8s-logging.exclude      off
+        annotations              off
+        labels                   off
+
+    # ─── Enrich records: add service name + parse non-JSON logs ───
+    [FILTER]
+        name                     lua
+        match                    kube.*
+        script                   /fluent-bit/scripts/process.lua
+        call                     process_record
+
+    # ─── Copy k8s metadata to top level, drop nested kubernetes object ───
+    [FILTER]
+        name                     modify
+        match                    kube.*
+        copy                     kubernetes.pod_name         pod_name
+        copy                     kubernetes.namespace        namespace
+        copy                     kubernetes.container_name   container_name
+        copy                     kubernetes.host             host
+        remove                   kubernetes
+
+    # ─── Elasticsearch output ───
+    [OUTPUT]
+        name                     es
+        match                    kube.*
+        host                     elasticsearch-es-http
+        port                     9200
+        http_user                elastic
+        http_passwd              6Ta3x9lqaa03avP9B7k515ru
+        retry_limit              2
+        tls                      off
+        logstash_format          on
+        logstash_prefix          kubernetes-logs
+        logstash_dateformat      %Y.%m.%d
+        time_key                 @timestamp
+        suppress_type_name       on
+
+  # ──────────────────────────────── Parser Definitions ────────────────────────────────
+  parsers.conf: |
+    [PARSER]
+        name                     docker
+        format                   json
+        time_key                 time
+        time_format              %Y-%m-%dT%H:%M:%S.%L
+        time_keep                on
+
+    [PARSER]
+        name                     cri
+        format                   regex
+        regex                    ^(?<time>[^ ]+) (?<stream>stdout|stderr) (?<log>.*)$
+        time_key                 time
+        time_format              %Y-%m-%dT%H:%M:%S.%L%z
+
+  # ──────────────────────────────── Lua Scripts ────────────────────────────────
+  process.lua: |
+    local function trim(s)
+        return s:match("^%s*(.-)%s*$")
+    end
+
+    local function parse_kong_access(log)
+        local pattern = '^(%S+)%s+%-%s+%[([^%]]+)%]%s+"(%S+)%s+(%S+)%s+([^"]+)"%s+(%d+)%s+(%d+)%s+"([^"]*)"%s+"([^"]*)"%s*$'
+        local s, e, remote_addr, timestamp, method, path, protocol, status, body_bytes, referer, ua = log:find(pattern)
+        if s then
+            return {remote_addr=remote_addr, timestamp=timestamp, method=method, path=path, protocol=protocol,
+                    status=tonumber(status), body_bytes=tonumber(body_bytes), referer=referer, user_agent=ua}
+        end
+        return nil
+    end
+
+    local function parse_postgresql(log)
+        local pattern = '^(%d%d%d%d%-%d%d%-%d%d%s+%d%d:%d%d:%d%d%.%d%d%d%s+%a+%s+)%[((%d+))%]:%s+(%a+):%s+(.*)$'
+        local s, e, timestamp, pid, level, message = log:find(pattern)
+        if s then
+            return {timestamp=trim(timestamp), pid=tonumber(pid), level=level, message=message}
+        end
+        return nil
+    end
+
+    local function parse_redis(log)
+        local pattern = '^(%d+):(%w)%s+(%d+%s+%a+%s+%d%d%d%d%s+%d%d:%d%d:%d%d%.%d%d%d)%s+([%w%-%.%*%=])%s+(.*)$'
+        local s, e, pid, role, timestamp, level_char, message = log:find(pattern)
+        if s then
+            local level_map = {["-"]="DEBUG", ["."]="VERBOSE", ["*"]="INFO", ["="]="WARNING", ["#"]="ERROR"}
+            return {pid=tonumber(pid), role=role, timestamp=timestamp, level=level_map[level_char] or level_char, message=message}
+        end
+        return nil
+    end
+
+    function process_record(tag, timestamp, record)
+        if record == nil then
+            return 0
+        end
+
+        -- Add service name based on container
+        local container_name = ""
+        if record["kubernetes"] and record["kubernetes"]["container_name"] then
+            container_name = record["kubernetes"]["container_name"]
+        end
+
+        local service_map = {
+            ["user-service"]       = "user-service",
+            ["task-service"]       = "task-service",
+            ["comment-service"]    = "comment-service",
+            ["search-service"]     = "search-service",
+            ["kong-gateway"]       = "kong",
+            ["kong-init"]          = "kong",
+            ["postgres"]           = "postgresql",
+            ["redis-service"]      = "redis",
+        }
+        record["service"] = service_map[container_name] or container_name
+
+        -- If a raw 'log' field remains (non-JSON), try to parse it
+        local log = record["log"]
+        if log and type(log) == "string" then
+            local parsed = parse_kong_access(log) or parse_postgresql(log) or parse_redis(log)
+            if parsed then
+                for k, v in pairs(parsed) do
+                    record[k] = v
+                end
+                record["_parsed"] = true
+            else
+                -- Could not parse; keep the raw log as the message
+                record["message"] = log
+            end
+            record["log"] = nil
+        end
+
+        return 1, timestamp, record
+    end

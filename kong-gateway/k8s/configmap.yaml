@@ -24,7 +24,7 @@ data:
           fault_tolerant: true
       - name: http-log
         config:
-          http_endpoint: http://kong-gateway.task-api.svc.cluster.local:8001/
+          http_endpoint: http://kong-log-endpoint:8001/
           method: POST
           timeout: 1000
           keepalive: 60000
@@ -46,7 +46,7 @@ data:
           fault_tolerant: true
       - name: http-log
         config:
-          http_endpoint: http://kong-gateway.task-api.svc.cluster.local:8001/
+          http_endpoint: http://kong-log-endpoint:8001/
           method: POST
           timeout: 1000
           keepalive: 60000
@@ -68,7 +68,7 @@ data:
           fault_tolerant: true
       - name: http-log
         config:
-          http_endpoint: http://kong-gateway.task-api.svc.cluster.local:8001/
+          http_endpoint: http://kong-log-endpoint:8001/
           method: POST
           timeout: 1000
           keepalive: 60000
@@ -90,7 +90,7 @@ data:
           fault_tolerant: true
       - name: http-log
         config:
-          http_endpoint: http://kong-gateway.task-api.svc.cluster.local:8001/
+          http_endpoint: http://kong-log-endpoint:8001/
           method: POST
           timeout: 1000
           keepalive: 60000

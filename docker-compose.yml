@@ -7,7 +7,7 @@ services:
       context: ./user-service
       dockerfile: Dockerfile
     image: registry.gitlab.shiveh.com/mapir/upstream/kibana:user-service
-    container_name: user-service
+    container_name: mamad-user-service
     ports:
       - "8001:8000"
     restart: unless-stopped
@@ -32,7 +32,10 @@ services:
 
   user-service-db:
     image: 185.120.221.119:8083/postgres:17.10-alpine3.22
-    container_name: user-service-db
+    container_name: mamad-user-service-db
+    logging:
+      options:
+        tag: "postgresql"
     environment:
       POSTGRES_DB: user_db
       POSTGRES_USER: postgres
@@ -57,7 +60,7 @@ services:
       context: ./task-service
       dockerfile: Dockerfile
     image: registry.gitlab.shiveh.com/mapir/upstream/kibana:task-service
-    container_name: task-service
+    container_name: mamad-task-service
     ports:
       - "8002:8000"
     restart: unless-stopped
@@ -82,7 +85,10 @@ services:
 
   task-service-db:
     image: 185.120.221.119:8083/postgres:17.10-alpine3.22
-    container_name: task-service-db
+    container_name: mamad-task-service-db
+    logging:
+      options:
+        tag: "postgresql"
     environment:
       POSTGRES_DB: task_db
       POSTGRES_USER: postgres
@@ -107,7 +113,7 @@ services:
       context: ./comment-service
       dockerfile: Dockerfile
     image: registry.gitlab.shiveh.com/mapir/upstream/kibana:comment-service
-    container_name: comment-service
+    container_name: mamad-comment-service
     ports:
       - "8003:8000"
     restart: unless-stopped
@@ -132,7 +138,10 @@ services:
 
   comment-service-db:
     image: 185.120.221.119:8083/postgres:17.10-alpine3.22
-    container_name: comment-service-db
+    container_name: mamad-comment-service-db
+    logging:
+      options:
+        tag: "postgresql"
     environment:
       POSTGRES_DB: comment_db
       POSTGRES_USER: postgres
@@ -154,7 +163,7 @@ services:
       context: ./search-service
       dockerfile: Dockerfile
     image: registry.gitlab.shiveh.com/mapir/upstream/kibana:search-service
-    container_name: search-service
+    container_name: mamad-search-service
     ports:
       - "8004:8000"
     restart: unless-stopped
@@ -183,7 +192,10 @@ services:
   # ---------------- ELASTICSEARCH ----------------
   elasticsearch:
     image: 185.120.221.119:8083/elasticsearch:8.11.0
-    container_name: elasticsearch
+    container_name: mamad-elasticsearch
+    logging:
+      options:
+        tag: "elasticsearch"
     environment:
       - discovery.type=single-node
       - xpack.security.enabled=false
@@ -206,7 +218,10 @@ services:
   # Shared Redis for all services
   redis:
     image: 185.120.221.119:8083/redis:7.4-alpine
-    container_name: redis
+    container_name: mamad-redis
+    logging:
+      options:
+        tag: "redis"
     environment:
       REDIS_PASSWORD: ""
     volumes:
@@ -223,7 +238,7 @@ services:
   # ---------------- PROMETHEUS ----------------
   prometheus:
     image: 185.120.221.119:8083/prom/prometheus:v2.48.0
-    container_name: prometheus
+    container_name: mamad-prometheus
     volumes:
       - ./prometheus:/etc/prometheus
       - prometheus_data:/prometheus
@@ -244,7 +259,7 @@ services:
   # ---------------- REDIS EXPORTER ----------------
   redis-exporter:
     image: 185.120.221.119:8083/oliver006/redis_exporter:v1.56.0
-    container_name: redis-exporter
+    container_name: mamad-redis-exporter
     command:
       - '--redis.addr=redis://redis:6379'
       - '--check-keys=*'
@@ -260,7 +275,7 @@ services:
   # ---------------- ELASTICSEARCH EXPORTER ----------------
   elasticsearch-exporter:
     image: 185.120.221.119:8083/prometheuscommunity/elasticsearch-exporter:v1.6.0
-    container_name: elasticsearch-exporter
+    container_name: mamad-elasticsearch-exporter
     command:
       - '--es.uri=http://elasticsearch:9200'
       - '--es.all'
@@ -280,7 +295,7 @@ services:
   # ---------------- POSTGRES EXPORTERS ----------------
   postgres-exporter-user:
     image: 185.120.221.119:8083/prometheuscommunity/postgres-exporter:v0.14.0
-    container_name: postgres-exporter-user
+    container_name: mamad-postgres-exporter-user
     environment:
       DATA_SOURCE_NAME: "postgresql://postgres:postgres@user-service-db:5432/user_db?sslmode=disable"
     ports:
@@ -294,7 +309,7 @@ services:
 
   postgres-exporter-task:
     image: 185.120.221.119:8083/prometheuscommunity/postgres-exporter:v0.14.0
-    container_name: postgres-exporter-task
+    container_name: mamad-postgres-exporter-task
     environment:
       DATA_SOURCE_NAME: "postgresql://postgres:postgres@task-service-db:5432/task_db?sslmode=disable"
     networks:
@@ -306,7 +321,7 @@ services:
 
   postgres-exporter-comment:
     image: 185.120.221.119:8083/prometheuscommunity/postgres-exporter:v0.14.0
-    container_name: postgres-exporter-comment
+    container_name: mamad-postgres-exporter-comment
     environment:
       DATA_SOURCE_NAME: "postgresql://postgres:postgres@comment-service-db:5432/comment_db?sslmode=disable"
     networks:
@@ -319,7 +334,7 @@ services:
   # ---------------- GRAFANA ----------------
   grafana:
     image: 185.120.221.119:8083/grafana/grafana:10.2.0
-    container_name: grafana
+    container_name: mamad-grafana
     volumes:
       - ./grafana/prometheus-datasource.yml:/etc/grafana/provisioning/datasources/prometheus-datasource.yml
       - ./grafana/dashboard-provider.yml:/etc/grafana/provisioning/dashboards/dashboard-provider.yml
@@ -342,7 +357,7 @@ services:
   # ---------------- KIBANA ----------------
   kibana:
     image: 185.120.221.119:8083/kibana:8.11.0
-    container_name: kibana
+    container_name: mamad-kibana
     volumes:
       - ./conf/kibana:/usr/share/kibana/config
     ports:
@@ -354,10 +369,29 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
+  # ---------------- FLUENT BIT (LOG COLLECTOR) ----------------
+  fluentbit:
+    image: 185.120.221.119:8083/fluent/fluent-bit:3.0.7
+    container_name: mamad-fluentbit
+    volumes:
+      - ./conf/fluentbit/fluent-bit.conf:/fluent-bit/etc/fluent-bit.conf
+      - ./conf/fluentbit/parsers.conf:/fluent-bit/etc/parsers.conf
+      - ./conf/fluentbit/process.lua:/fluent-bit/etc/process.lua
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/log:/var/log:ro
+    ports:
+      - "2020:2020"
+    networks:
+      - wolfix-service-network
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    restart: unless-stopped
+
   # ---------------- NODE EXPORTER ----------------
   node-exporter:
     image: prom/node-exporter:v1.7.0
-    container_name: node-exporter
+    container_name: mamad-node-exporter
     command:
       - '--path.procfs=/host/proc'
       - '--path.sysfs=/host/sys'

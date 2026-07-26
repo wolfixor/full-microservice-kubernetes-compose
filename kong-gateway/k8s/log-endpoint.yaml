@@ -5,6 +5,9 @@ metadata:
   namespace: task-api
 spec:
   type: ClusterIP
+  selector:
+    app: kong-log-receiver
   ports:
   - port: 8001
     targetPort: 8001
+    name: http

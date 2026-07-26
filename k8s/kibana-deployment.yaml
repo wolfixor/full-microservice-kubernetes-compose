@@ -17,25 +17,29 @@ spec:
     spec:
       containers:
       - name: kibana
-        image: kibana:8.11.0
+        image: docker.arvancloud.ir/kibana:9.4.2
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 5601
         env:
         - name: ELASTICSEARCH_HOSTS
-          value: "http://elasticsearch:9200"
+          value: "http://elasticsearch-es-http:9200"
+        # - name: ELASTICSEARCH_USERNAME
+        #   value: "elastic"
+        # - name: ELASTICSEARCH_PASSWORD
+        #   value: "6Ta3x9lqaa03avP9B7k515ru"
         resources:
           requests:
-            memory: "256Mi"
-            cpu: "100m"
+            memory: "500Mi"
+            cpu: "400m"
           limits:
-            memory: "512Mi"
-            cpu: "250m"
+            memory: "1000Mi"
+            cpu: "800m"
         readinessProbe:
           httpGet:
             path: /api/status
             port: 5601
-          initialDelaySeconds: 60
+          initialDelaySeconds: 240
           periodSeconds: 10
 
 ---

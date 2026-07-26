@@ -1,0 +1,105 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kong-log-receiver
+  namespace: task-api
+data:
+  receiver.py: |
+    import json
+    import os
+    import sys
+    from datetime import datetime, timezone
+    from http.server import HTTPServer, BaseHTTPRequestHandler
+
+
+    POD_NAME = os.environ.get("POD_NAME", "unknown")
+
+
+    def write_log(source, data):
+        record = {
+            "timestamp": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.") +
+                         f"{datetime.now(timezone.utc).microsecond:06d}Z",
+            "service": "kong",
+            "level": "INFO",
+            "request_id": data.get("request", {}).get("headers", {}).get("kong-request-id", ""),
+            "pod_name": POD_NAME,
+            "message": f'{data.get("request", {}).get("method", "")} {data.get("request", {}).get("uri", "")} -> {data.get("response", {}).get("status", 0)}',
+            "logger": "kong.http_log",
+            "kong": data,
+        }
+        print(json.dumps(record, ensure_ascii=False, default=str))
+        sys.stdout.flush()
+
+
+    class LogHandler(BaseHTTPRequestHandler):
+        def do_POST(self):
+            length = int(self.headers.get("Content-Length", 0))
+            body = self.rfile.read(length)
+            try:
+                data = json.loads(body)
+                write_log("kong-http-log", data)
+            except Exception as e:
+                err = {"timestamp": datetime.now(timezone.utc).isoformat(), "service": "kong", "level": "ERROR",
+                       "request_id": "", "pod_name": POD_NAME, "message": f"Failed to parse log: {e}",
+                       "logger": "kong.http_log"}
+                print(json.dumps(err), file=sys.stderr)
+                sys.stderr.flush()
+            self.send_response(200)
+            self.end_headers()
+
+        def log_message(self, format, *args):
+            pass
+
+
+    if __name__ == "__main__":
+        server = HTTPServer(("0.0.0.0", 8001), LogHandler)
+        print(json.dumps({"timestamp": datetime.now(timezone.utc).isoformat(), "service": "kong",
+                          "level": "INFO", "request_id": "", "pod_name": POD_NAME,
+                          "message": "Kong log receiver started on :8001",
+                          "logger": "kong.http_log"}), flush=True)
+        server.serve_forever()
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kong-log-receiver
+  namespace: task-api
+  labels:
+    app: kong-log-receiver
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kong-log-receiver
+  template:
+    metadata:
+      labels:
+        app: kong-log-receiver
+    spec:
+      containers:
+      - name: receiver
+        image: docker.arvancloud.ir/python:3.12-slim
+        imagePullPolicy: IfNotPresent
+        command: ["python", "/app/receiver.py"]
+        ports:
+        - containerPort: 8001
+          name: http
+        env:
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        volumeMounts:
+        - name: script
+          mountPath: /app
+        resources:
+          requests:
+            cpu: 50m
+            memory: 64Mi
+          limits:
+            cpu: 100m
+            memory: 128Mi
+      volumes:
+      - name: script
+        configMap:
+          name: kong-log-receiver
