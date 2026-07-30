@@ -1,8 +1,8 @@
 # Production-Style Microservices Platform on Kubernetes
 
-A complete, production-style microservice architecture built to demonstrate how real systems are designed, deployed, and operated: independent FastAPI services with isolated databases, an API gateway, cache-aside Redis caching, full-text search, database migration jobs, and a full observability stack (metrics, dashboards, and centralized logging) — deployable to Kubernetes/K3s or Docker Compose.
+A production-style learning platform for microservices, Kubernetes, event-driven architecture, and observability.
 
-> Most of my production work (map.ir, Iran Post GNAF — ~260 microservices across 25 nodes) lives in private repositories. This project is the public window into how I design and run infrastructure.
+The project now includes independent FastAPI services, database-per-service isolation, Kong Gateway, Redis caching, Elasticsearch search, Strimzi Kafka, Kafka consumers, operator-managed Prometheus, Grafana dashboards, Fluent Bit logging, Elasticsearch log storage, and Kibana.
 
 ## Architecture
 
@@ -10,123 +10,149 @@ A complete, production-style microservice architecture built to demonstrate how 
 flowchart TB
     Internet((Internet)) --> Kong[Kong API Gateway]
 
-    Kong --> US[User Service :8001]
-    Kong --> TS[Task Service :8002]
-    Kong --> CS[Comment Service :8003]
-    Kong --> SS[Search Service :8004]
-    Kong --> AS[Activity Service :8005]
-    Kong --> NS[Notification Service :8006]
-
-    US -. user.created, user.updated .-> Kafka[(Kafka Event Backbone)]
-    TS -. task.created, task.updated, task.deleted .-> Kafka
-    CS -. comment.created, comment.deleted .-> Kafka
+    Kong --> US[User Service]
+    Kong --> TS[Task Service]
+    Kong --> CS[Comment Service]
+    Kong --> SS[Search Service]
+    Kong --> AS[Activity Service]
+    Kong --> NS[Notification Service]
 
     US --> UDB[(PostgreSQL user_db)]
     TS --> TDB[(PostgreSQL task_db)]
     CS --> CDB[(PostgreSQL comment_db)]
-    SS --> ES[(Elasticsearch)]
     AS --> ADB[(PostgreSQL activity_db)]
     NS --> NDB[(PostgreSQL notification_db)]
+    SS --> ES[(Elasticsearch search index)]
 
-    US -.-> R[(Redis<br/>cache-aside)]
-    TS -.-> R
-    CS -.-> R
+    US -.->|cache| Redis[(Redis)]
+    TS -.->|cache| Redis
+    CS -.->|cache| Redis
 
-    Kafka -. task/comment events .-> SS
-    Kafka -. all business events .-> AS
-    Kafka -. notification events .-> NS
+    US -.->|user.created, user.updated| Kafka[(Kafka Event Backbone)]
+    TS -.->|task.created, task.updated, task.deleted| Kafka
+    CS -.->|comment.created, comment.deleted| Kafka
 
-    subgraph Observability
-        P[Prometheus] --> G[Grafana]
-        Kong -. http-log plugin .-> KLR[Kong Log Receiver]
-        Kong -. stdout .-> FB[Fluent Bit DaemonSet]
-        US -. stdout JSON logs .-> FB
-        TS -. stdout JSON logs .-> FB
-        CS -. stdout JSON logs .-> FB
-        SS -. stdout JSON logs .-> FB
-        KLR -. stdout JSON logs .-> FB
-        FB --> LES[(Elasticsearch log store)] --> K[Kibana]
-        EXP[Exporters: node, redis, elasticsearch, one postgres-exporter per DB] --> P
+    Kafka -.->|task and comment events| SS
+    Kafka -.->|all business events| AS
+    Kafka -.->|selected notification events| NS
+
+    subgraph Metrics
+        PO[Prometheus Operator] --> PCR[Prometheus CR]
+        SM[ServiceMonitor CRs] --> PO
+        PCR --> Prom[Prometheus StatefulSet]
+        Prom --> Grafana[Grafana]
+        Apps[Service /metrics endpoints] --> SM
+        Exporters[Node / Redis / PostgreSQL / Elasticsearch exporters] --> SM
+    end
+
+    subgraph Logs
+        Kong -.->|stdout| FB[Fluent Bit]
+        US -.->|stdout JSON| FB
+        TS -.->|stdout JSON| FB
+        CS -.->|stdout JSON| FB
+        SS -.->|stdout JSON| FB
+        AS -.->|stdout JSON| FB
+        NS -.->|stdout JSON| FB
+        KLR[Kong Log Receiver] -.->|stdout JSON| FB
+        Kong -.->|http-log plugin| KLR
+        FB --> LogES[(Elasticsearch log store)]
+        LogES --> Kibana[Kibana]
     end
 ```
 
-**Request flow:** external traffic enters through Kong, which routes to the appropriate service. Each service owns its data (database-per-service), reads through Redis with a cache-aside pattern, and exposes `/health` and `/ready` probes consumed by Kubernetes. User, task, and comment services publish domain events asynchronously to Kafka after successful writes. Search-service consumes task/comment Kafka events and updates Elasticsearch for full-text search. Activity-service consumes all business events and stores an immutable audit log in PostgreSQL. Notification-service consumes selected events and stores notification records.
+## Main Flows
 
-**Log flow:** application containers and Kong write logs to stdout/stderr. Kong also uses the `http-log` plugin to send richer request events to a small Kong Log Receiver, which prints structured JSON to stdout. Fluent Bit runs as a DaemonSet, tails `/var/log/containers/*.log` on every node, enriches records with Kubernetes metadata, and ships them to Elasticsearch for Kibana analysis.
+**HTTP request flow**
 
-## What This Project Demonstrates
+```text
+Client
+  -> Kong
+  -> service
+  -> service database/cache/search backend
+```
 
-- **Database-per-service isolation** — each service has its own PostgreSQL instance; no shared schemas.
-- **Safe schema migrations** — Alembic migrations run as Kubernetes Jobs *before* service rollout, gated with `kubectl wait`.
-- **Cache-aside caching** — Redis read-through with automatic invalidation on writes, per-service Redis databases, 5-minute TTL with LRU eviction, and graceful degradation when Redis is down.
-- **API gateway routing** — Kong terminates external traffic and routes per path.
-- **Kafka event backbone** — Strimzi-managed Kafka with 3 persistent brokers, replicated topics, async producers, retries, and dead-letter topics.
-- **Kubernetes-native health** — liveness (`/health`) and readiness (`/ready`) probes on every service; Redis health is part of readiness.
-- **Full observability** — Prometheus scraping node, Redis, Elasticsearch, and per-database Postgres exporters; provisioned Grafana dashboards; centralized logging with Fluent Bit, Kong `http-log`, Elasticsearch, and Kibana.
-- **Two deployment targets** — the same system runs on Kubernetes/K3s (manifests per service) or locally via a single `docker-compose.yml` (20 containers).
+**Kafka event flow**
+
+```text
+user/task/comment service
+  -> writes to its own PostgreSQL
+  -> publishes event to Kafka
+  -> search-service indexes searchable events
+  -> activity-service stores audit history
+  -> notification-service stores notification records
+```
+
+**Metrics flow**
+
+```text
+ServiceMonitor CRs
+  -> Prometheus Operator
+  -> generated scrape config
+  -> Prometheus StatefulSet
+  -> Grafana
+```
+
+**Log flow**
+
+```text
+container stdout/stderr
+  -> Fluent Bit
+  -> Elasticsearch
+  -> Kibana
+```
 
 ## Services
 
-| Service | Port | Responsibility | Data Store |
+| Service | Public path | Responsibility | Data store |
 |---|---|---|---|
-| user-service | 8001 | User accounts and profiles (`/api/users`) | PostgreSQL + Redis |
-| task-service | 8002 | Tasks with status tracking (`/api/tasks`) | PostgreSQL + Redis |
-| comment-service | 8003 | Comments on tasks (`/api/comments`) | PostgreSQL + Redis |
-| search-service | 8004 | Full-text search across tasks and comments (`/api/search`) | Elasticsearch |
-| activity-service | 8005 | Immutable audit log of Kafka business events (`/api/activities`) | PostgreSQL |
-| notification-service | 8006 | Stored notifications from selected Kafka events (`/api/notifications`) | PostgreSQL |
+| user-service | `/users` | User accounts and profiles | PostgreSQL + Redis |
+| task-service | `/tasks` | Task CRUD and task events | PostgreSQL + Redis |
+| comment-service | `/comments` | Comment CRUD and comment events | PostgreSQL + Redis |
+| search-service | `/search` | Full-text search from Kafka events | Elasticsearch |
+| activity-service | `/activities` | Immutable audit log of Kafka events | PostgreSQL |
+| notification-service | `/notifications` | Stored notifications from Kafka events | PostgreSQL |
 
-Every service is FastAPI-based with structured logging, environment-based configuration, its own Dockerfile, and its own Kubernetes manifests — independently buildable and deployable.
+## Platform Components
 
-### Search Service
+| Component | Role |
+|---|---|
+| Kong Gateway | Public entry point and path routing |
+| Redis | Cache-aside layer for core CRUD services |
+| Kafka / Strimzi | Persistent event backbone |
+| Elasticsearch | Search index and log storage |
+| Fluent Bit | Kubernetes log collection |
+| Kibana | Log exploration |
+| Prometheus Operator | Manages Prometheus through CRDs |
+| Prometheus | Metrics storage and query engine |
+| ServiceMonitor | Declarative scrape target definition |
+| Grafana | Metrics dashboards |
 
-- Elasticsearch-powered full-text search across tasks and comments
-- Multi-field matching (title, content, description) with auto-fuzziness
-- Score-based ranking with recency bias
-- Kafka consumer for task/comment events, with HTTP ingestion endpoints kept as a manual fallback
+## What This Project Demonstrates
 
-### Activity Service
+- Database-per-service isolation
+- Kubernetes Deployments, StatefulSets, Services, Secrets, PVCs, and Jobs
+- Kong API Gateway routing and plugins
+- Redis cache-aside pattern
+- Elasticsearch-backed search
+- Strimzi-managed Kafka with replicated topics
+- Async Kafka producers with retries and DLQ topics
+- Multiple independent Kafka consumers for the same events
+- Operator-managed Prometheus with `Prometheus` and `ServiceMonitor` CRDs
+- Centralized logging with Fluent Bit, Elasticsearch, and Kibana
+- Docker Compose parity for local learning
 
-- Kafka consumer for user, task, and comment events
-- Immutable PostgreSQL audit log
-- Read-only `GET /activities` endpoint with event type and aggregate filters
+## Kubernetes Deploy Flow
 
-### Notification Service
-
-- Kafka consumer for `user.created`, `task.created`, and `comment.created`
-- Stores notification records in PostgreSQL
-- Read-only `GET /notifications` endpoint with user, status, and type filters
-
-## Quick Start — Docker Compose
-
-The fastest way to run the entire platform, including the observability stack:
-
-```bash
-docker compose up -d
-```
-
-This brings up all four services, their PostgreSQL instances, Redis, Elasticsearch, Kong-equivalent routing, Prometheus with all exporters, Grafana, Kibana, and Fluent Bit.
-
-## Deploying to Kubernetes
-
-### 1. Build the images
-
-```bash
-for svc in user-service task-service comment-service search-service; do
-  docker build -t $svc ./$svc
-done
-```
-
-### 2. Core infrastructure
+### 1. Core Namespace And Shared Infra
 
 ```bash
 kubectl apply -f k8s/namespace.yaml
-kubectl apply -f k8s/secret.yaml               # DB + Redis credentials
+kubectl apply -f k8s/secret.yaml
 kubectl apply -f k8s/redis-deployment.yaml
 kubectl apply -f k8s/elasticsearch-deployment.yaml
 ```
 
-Kafka is managed by Strimzi. Install the operator first, then create the Kafka cluster and topics:
+### 2. Kafka
 
 ```bash
 kubectl apply -f k8s/kafka/namespace.yaml
@@ -136,9 +162,7 @@ kubectl apply -f k8s/kafka/kafka-cluster.yaml
 kubectl apply -f k8s/kafka/topics.yaml
 ```
 
-### 3. Databases and migrations
-
-Migrations run as Jobs and must complete before the services start:
+### 3. Databases
 
 ```bash
 kubectl apply -f user-service/k8s/postgres.yaml
@@ -146,21 +170,25 @@ kubectl apply -f task-service/k8s/postgres.yaml
 kubectl apply -f comment-service/k8s/postgres.yaml
 kubectl apply -f activity-service/k8s/postgres.yaml
 kubectl apply -f notification-service/k8s/postgres.yaml
+```
 
+### 4. Migrations
+
+```bash
 kubectl apply -f user-service/k8s/migration-job.yaml
 kubectl apply -f task-service/k8s/migration-job.yaml
 kubectl apply -f comment-service/k8s/migration-job.yaml
 kubectl apply -f activity-service/k8s/migration-job.yaml
 kubectl apply -f notification-service/k8s/migration-job.yaml
 
-kubectl wait --for=condition=complete job/user-service-migrations    -n task-api --timeout=300s
-kubectl wait --for=condition=complete job/task-service-migrations    -n task-api --timeout=300s
+kubectl wait --for=condition=complete job/user-service-migrations -n task-api --timeout=300s
+kubectl wait --for=condition=complete job/task-service-migrations -n task-api --timeout=300s
 kubectl wait --for=condition=complete job/comment-service-migrations -n task-api --timeout=300s
 kubectl wait --for=condition=complete job/activity-service-migrations -n task-api --timeout=300s
 kubectl wait --for=condition=complete job/notification-service-migrations -n task-api --timeout=300s
 ```
 
-### 4. Services and gateway
+### 5. Services And Gateway
 
 ```bash
 kubectl apply -f user-service/k8s/deployment.yaml
@@ -173,179 +201,102 @@ kubectl apply -f notification-service/k8s/deployment.yaml
 kubectl apply -f kong-gateway/k8s/
 ```
 
-### 5. Verify
+### 6. Operator-Managed Prometheus
 
 ```bash
-kubectl get pods -n task-api
-kubectl get svc  -n task-api
-kubectl get service kong-gateway -n task-api   # external IP
+kubectl apply -f k8s/monitoring/namespace.yaml
+```
+
+Install pinned Prometheus Operator `v0.93.0`:
+
+```bash
+OPERATOR_VERSION=v0.93.0
+TMPDIR=$(mktemp -d)
+
+curl -sL "https://raw.githubusercontent.com/prometheus-operator/prometheus-operator/refs/tags/${OPERATOR_VERSION}/kustomization.yaml" > "${TMPDIR}/kustomization.yaml"
+curl -sL "https://raw.githubusercontent.com/prometheus-operator/prometheus-operator/refs/tags/${OPERATOR_VERSION}/bundle.yaml" > "${TMPDIR}/bundle.yaml"
+
+cd "${TMPDIR}"
+kustomize edit set namespace monitoring
+kubectl apply -k "${TMPDIR}"
+
+kubectl wait pod -n monitoring -l app.kubernetes.io/name=prometheus-operator --for=condition=Ready --timeout=300s
+```
+
+Apply platform monitoring:
+
+```bash
+kubectl apply -f k8s/monitoring/prometheus-rbac.yaml
+kubectl apply -f k8s/monitoring/postgres-exporter.yaml
+kubectl apply -f k8s/monitoring/redis-exporter.yaml
+kubectl apply -f k8s/monitoring/elasticsearch-exporter.yaml
+kubectl apply -f k8s/monitoring/node-exporter.yaml
+kubectl apply -f k8s/monitoring/kube-state-metrics.yaml
+kubectl apply -f k8s/monitoring/service-monitors.yaml
+kubectl apply -f k8s/monitoring/prometheus-managed.yaml
+kubectl apply -f k8s/monitoring/grafana-dashboards.yaml
+kubectl apply -f k8s/monitoring/grafana-deployment.yaml
+```
+
+### 7. Logging
+
+```bash
+kubectl apply -f k8s/kibana-deployment.yaml
+kubectl apply -f k8s/fluentbit/configmap.yaml
+kubectl apply -f k8s/fluentbit/daemonset.yaml
+kubectl apply -f kong-gateway/k8s/log-receiver.yaml
+kubectl apply -f kong-gateway/k8s/log-endpoint.yaml
+kubectl apply -f kong-gateway/k8s/configmap.yaml
+kubectl rollout restart deployment/kong-gateway -n task-api
 ```
 
 ## Testing
 
-Through the gateway (external path):
+Through Kong:
 
 ```bash
-KONG_IP=$(kubectl get service kong-gateway -n task-api -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
-
-curl http://$KONG_IP/users
-curl http://$KONG_IP/tasks
-curl http://$KONG_IP/comments
-curl "http://$KONG_IP/search?q=example"
-curl http://$KONG_IP/activities
-curl http://$KONG_IP/notifications
+curl http://localhost:8888/users/
+curl http://localhost:8888/tasks/
+curl http://localhost:8888/comments/
+curl "http://localhost:8888/search/?q=example"
+curl "http://localhost:8888/activities/?event_type=task.created"
+curl "http://localhost:8888/notifications/?type=task_created"
 ```
 
-Direct service access (internal):
+Kafka event test:
 
 ```bash
-curl http://localhost:8001/health && curl http://localhost:8001/api/users
-curl http://localhost:8002/health && curl http://localhost:8002/api/tasks
-curl http://localhost:8003/health && curl http://localhost:8003/api/comments
-curl http://localhost:8004/health && curl "http://localhost:8004/api/search?q=example"
-curl http://localhost:8005/health && curl http://localhost:8005/api/activities
-curl http://localhost:8006/health && curl http://localhost:8006/api/notifications
+curl -X POST http://localhost:8888/tasks/ \
+  -H "Content-Type: application/json" \
+  -d '{"title":"Kafka test","description":"event test","user_id":"u1"}'
+
+curl "http://localhost:8888/activities/?event_type=task.created"
+curl "http://localhost:8888/notifications/?type=task_created"
+curl "http://localhost:8888/search/?q=Kafka"
 ```
 
-## Observability
+## Useful Docs
 
-- **Metrics:** Prometheus scrapes node-exporter, redis-exporter, elasticsearch-exporter, and a postgres-exporter per database.
-- **Dashboards:** Grafana with provisioned datasources and dashboards (`grafana/`).
-- **Logs:** Fluent Bit runs as a DaemonSet, collects container stdout/stderr logs, enriches them with Kubernetes metadata, and ships them to Elasticsearch. Kong request logs also flow through the Kong `http-log` plugin and Kong Log Receiver before Fluent Bit collects them. Kibana provides analysis (`conf/`, see [docs/LOG_FLOW.md](docs/LOG_FLOW.md) and [docs/LOG_FLOW_SHORT.md](docs/LOG_FLOW_SHORT.md)).
+- [Kafka stack](docs/kafka-stack.md)
+- [Activity service](docs/activity-service.md)
+- [Notification service](docs/notification-service.md)
+- [Prometheus stack](docs/prometheus-stack.md)
+- [Operator and CRD](docs/operator-crd.md)
+- [ELK stack](docs/elk-stack.md)
+- [Kafka tests](docs/test-kafka.md)
 
-## Repository Layout
+## Docker Compose
 
-```
-├── user-service/       # FastAPI service + Dockerfile + k8s manifests
-├── task-service/
-├── comment-service/
-├── search-service/
-├── kong-gateway/       # Kong API gateway manifests
-├── k8s/                # Namespace, secrets, Redis, Elasticsearch, monitoring
-├── prometheus/         # Scrape configuration
-├── grafana/            # Datasources + provisioned dashboards
-├── conf/               # Fluent Bit + Kibana configuration
-├── redis/              # Caching cookbook + utilities
-├── docs/               # Deployment guides, migration guides, cookbooks
-└── docker-compose.yml  # Full local stack (20 containers)
+For local learning:
+
+```bash
+docker compose up -d
 ```
 
-The [docs/](docs/) folder contains detailed guides: deployment, environment configuration, database architecture, Redis caching patterns, log flow, and migration strategy.
-
-## Roadmap — Target Architecture
-
-The next phase replaces HTTP event ingestion with an event-driven backbone and adds platform-grade services:
-
-- **Kafka** event bus replacing HTTP ingestion (notification, activity, and search consumers)
-- **Argo Rollouts** for canary and blue/green deployments
-- **Velero** backups and **Rook-Ceph** distributed storage
-- PostgreSQL HA (primary + replicas), 3-broker Kafka, Redis cluster
-- Search analytics, faceted search, autocomplete, relevance tuning
-
-```
-
-                                         Internet
-                                             |
-                                             |
-                                      +-------------+
-                                      |    Kong     |
-                                      |   Gateway   |
-                                      +-------------+
-                                             |
-      --------------------------------------------------------------------------------
-      |                    |                    |                    |                |
-      v                    v                    v                    v                v
-
-+-------------+    +-------------+    +-------------+    +-------------+    +------------------+
-| User        |    | Task        |    | Comment     |    | Search      |    | Notification     |
-| Service     |    | Service     |    | Service     |    | Service     |    | Service          |
-+-------------+    +-------------+    +-------------+    +-------------+    +------------------+
-      |                    |                    |                    |                |
-      |                    |                    |                    |                |
-      v                    v                    v                    v                |
-+-------------+    +-------------+    +-------------+    +------------------+        |
-| PostgreSQL  |    | PostgreSQL  |    | PostgreSQL  |    | Elasticsearch    |        |
-+-------------+    +-------------+    +-------------+    +------------------+        |
-      |                    |                    |                    ^                |
-      |                    |                    |                    |                |
-      ---------------------------------------------------------------------------------
-                                             |
-                                             v
-                                      +-------------+
-                                      |    Kafka    |
-                                      |  Cluster    |
-                                      +-------------+
-                                             |
-                    -------------------------------------------------
-                    |                       |                       |
-                    v                       v                       v
-
-             +-------------+       +------------------+    +------------------+
-             | Activity    |       | Notification     |    | Search Service   |
-             | Service     |       | Service          |    | Kafka Consumer   |
-             +-------------+       +------------------+    +------------------+
-                    |
-                    v
-             +-------------+
-             | PostgreSQL  |
-             | activity_db |
-             +-------------+
-
-
-========================================================================================
-                               SHARED PLATFORM SERVICES
-========================================================================================
-
-+------------------+      +------------------+      +------------------+
-| Redis Cluster    |      | Prometheus       |      | Grafana          |
-| Cache Layer      |      | Metrics          |      | Dashboards       |
-+------------------+      +------------------+      +------------------+
-
-+------------------+      +------------------+      +------------------+
-| Fluent Bit       | ---> | Elasticsearch    | ---> | Kibana           |
-| Log Collection   |      | Log Storage      |      | Log Analysis     |
-+------------------+      +------------------+      +------------------+
-
-+------------------+
-| Argo Rollouts    |
-| Canary/BlueGreen |
-+------------------+
-
-+------------------+
-| Velero           |
-| Backups          |
-+------------------+
-
-+------------------+
-| Rook-Ceph        |
-| Storage Layer    |
-+------------------+
-
-
-========================================================================================
-                                   STORAGE LAYER
-========================================================================================
-
-                          +------------------------+
-                          |      Rook-Ceph         |
-                          | Distributed Storage    |
-                          +------------------------+
-                                       |
-            ----------------------------------------------------------------
-            |                    |                    |                     |
-            v                    v                    v                     v
-
-    PostgreSQL HA        Kafka Cluster       Elasticsearch       Backup Storage
-    (Primary+Replicas)   (3 Brokers)         Persistent Data     (Velero)
-
-            |
-            v
-
-      Redis Cluster
-
-```
+The Compose stack keeps local parity for services, databases, Redis, Kafka, Elasticsearch, Prometheus, Grafana, Kibana, and Fluent Bit.
 
 ## Author
 
-**Mahdi Lotfilo** — DevOps Engineer
-GitHub: [github.com/wolfixor](https://github.com/wolfixor) · Email: wolfix.xiflow@gmail.com
+Mahdi Lotfilo - DevOps Engineer
+
+GitHub: [github.com/wolfixor](https://github.com/wolfixor)
