@@ -1,0 +1,62 @@
+---
+apiVersion: monitoring.coreos.com/v1
+kind: Prometheus
+metadata:
+  name: platform-prometheus
+  namespace: monitoring
+  labels:
+    app: prometheus
+    release: prometheus
+spec:
+  version: v3.13.1
+  replicas: 1
+  serviceAccountName: prometheus
+  serviceMonitorSelector:
+    matchLabels:
+      release: prometheus
+  serviceMonitorNamespaceSelector:
+    matchLabels:
+      name: monitoring
+  retention: 30d
+  retentionSize: 8GB
+  resources:
+    requests:
+      memory: 512Mi
+      cpu: 250m
+    limits:
+      memory: 2Gi
+      cpu: 500m
+  securityContext:
+    fsGroup: 65534
+    runAsUser: 65534
+    runAsNonRoot: true
+  storage:
+    volumeClaimTemplate:
+      spec:
+        accessModes:
+        - ReadWriteOnce
+        resources:
+          requests:
+            storage: 10Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: prometheus
+  namespace: monitoring
+  labels:
+    app: prometheus
+    release: prometheus
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "9090"
+    prometheus.io/path: "/metrics"
+spec:
+  type: ClusterIP
+  selector:
+    prometheus: platform-prometheus
+  ports:
+  - name: http
+    port: 9090
+    targetPort: web
+    protocol: TCP

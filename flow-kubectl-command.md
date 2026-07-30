@@ -87,14 +87,15 @@ http://NODE_IP:30086
 
 
 kubectl apply -f k8s/monitoring/namespace.yaml
+# Follow k8s/monitoring/prometheus-operator-install.md to install pinned Prometheus Operator v0.93.0
 kubectl apply -f k8s/monitoring/prometheus-rbac.yaml
 kubectl apply -f k8s/monitoring/postgres-exporter.yaml
 kubectl apply -f k8s/monitoring/redis-exporter.yaml
 kubectl apply -f k8s/monitoring/elasticsearch-exporter.yaml
 kubectl apply -f k8s/monitoring/node-exporter.yaml
 kubectl apply -f k8s/monitoring/kube-state-metrics.yaml
-kubectl apply -f k8s/monitoring/prometheus-config.yaml
-kubectl apply -f k8s/monitoring/prometheus-deployment.yaml
+kubectl apply -f k8s/monitoring/service-monitors.yaml
+kubectl apply -f k8s/monitoring/prometheus-managed.yaml
 kubectl apply -f k8s/monitoring/grafana-dashboards.yaml
 kubectl apply -f k8s/monitoring/grafana-deployment.yaml
 
@@ -113,3 +114,4 @@ kubectl apply -f k8s/fluentbit/kibana-setup.yaml
 mirros:
 
 https://k8s-mirror.liara.ir
+https://quay-mirror.liara.ir
