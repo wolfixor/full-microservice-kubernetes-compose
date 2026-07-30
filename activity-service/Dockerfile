@@ -1,0 +1,45 @@
+FROM 185.120.221.119:8083/python:3.12-slim
+
+WORKDIR /app
+
+ENV PIP_INDEX_URL=http://185.120.221.119:8081/repository/pypi-group/simple/
+ENV PIP_TRUSTED_HOST=185.120.221.119
+
+ARG NEXUS_URL=http://185.120.221.119:8081
+
+RUN set -ex \
+    && rm -rf /etc/apt/sources.list.d/* \
+    && echo "deb ${NEXUS_URL}/repository/debian-13/ trixie main contrib non-free non-free-firmware" > /etc/apt/sources.list \
+    && echo "deb ${NEXUS_URL}/repository/debian-13-security/ trixie-security main contrib non-free non-free-firmware" >> /etc/apt/sources.list \
+    && apt-get update
+
+RUN apt-get update && apt-get install -y gcc curl netcat-openbsd postgresql-client \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN python -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt -vvv
+
+COPY app/ ./app/
+COPY alembic.ini ./alembic.ini
+COPY alembic/ ./alembic/
+COPY docker-entrypoint.sh /usr/local/bin/
+
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+
+ENV PYTHONPATH=/app
+ENV PYTHONUNBUFFERED=1
+ENV PORT=8000
+
+RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
+USER appuser
+
+EXPOSE 8000
+
+ENTRYPOINT ["docker-entrypoint.sh"]
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+  CMD curl --fail --silent --show-error http://localhost:8000/health || exit 1

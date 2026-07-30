@@ -1,0 +1,63 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: notification-service-db
+  namespace: task-api
+  labels:
+    app: notification-service-db
+spec:
+  serviceName: notification-service-db
+  replicas: 1
+  selector:
+    matchLabels:
+      app: notification-service-db
+  template:
+    metadata:
+      labels:
+        app: notification-service-db
+    spec:
+      containers:
+      - name: postgres
+        image: docker.arvancloud.ir/postgres:15-alpine
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 5432
+        env:
+        - name: POSTGRES_DB
+          value: "notification_db"
+        - name: POSTGRES_USER
+          valueFrom:
+            secretKeyRef:
+              name: postgres-credentials
+              key: POSTGRES_USER
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: postgres-credentials
+              key: POSTGRES_PASSWORD
+        volumeMounts:
+        - name: postgres-data
+          mountPath: /var/lib/postgresql/data
+  volumeClaimTemplates:
+  - metadata:
+      name: postgres-data
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      resources:
+        requests:
+          storage: 1Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: notification-service-db
+  namespace: task-api
+  labels:
+    app: notification-service-db
+spec:
+  selector:
+    app: notification-service-db
+  ports:
+  - port: 5432
+    targetPort: 5432
+  type: ClusterIP

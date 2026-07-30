@@ -13,9 +13,34 @@ kubectl apply -f k8s/elasticsearch-deployment.yaml
 kubectl get pods -n task-api
 kubectl get elasticsearch -n task-api
 
+
+# Kafka / Strimzi event backbone
+# first apply namespace, then install Strimzi operator
+kubectl apply -f k8s/kafka/namespace.yaml
+kubectl create -f https://strimzi.io/install/latest?namespace=kafka -n kafka
+kubectl wait deployment/strimzi-cluster-operator -n kafka --for=condition=Available --timeout=300s
+
+# after this you should see only the operator pod first
+kubectl get pods -n kafka
+
+# now create the real Kafka cluster and topics
+kubectl apply -f k8s/kafka/kafka-cluster.yaml
+
+# wait until Strimzi creates Kafka brokers, PVCs, and services
+kubectl get kafka -n kafka
+kubectl get pods -n kafka
+kubectl get pvc -n kafka
+kubectl get svc -n kafka
+
+# create business event topics and dlq topics
+kubectl apply -f k8s/kafka/topics.yaml
+kubectl get kafkatopic -n kafka
+
 kubectl apply -f user-service/k8s/postgres.yaml
 kubectl apply -f task-service/k8s/postgres.yaml
 kubectl apply -f comment-service/k8s/postgres.yaml
+kubectl apply -f activity-service/k8s/postgres.yaml
+kubectl apply -f notification-service/k8s/postgres.yaml
 
 kubectl get pods -n task-api
 
@@ -23,16 +48,27 @@ kubectl get pods -n task-api
 kubectl apply -f user-service/k8s/migration-job.yaml
 kubectl apply -f task-service/k8s/migration-job.yaml
 kubectl apply -f comment-service/k8s/migration-job.yaml
+kubectl apply -f activity-service/k8s/migration-job.yaml
+kubectl apply -f notification-service/k8s/migration-job.yaml
 
 kubectl wait --for=condition=complete job/user-service-migrations -n task-api --timeout=300s
 kubectl wait --for=condition=complete job/task-service-migrations -n task-api --timeout=300s
 kubectl wait --for=condition=complete job/comment-service-migrations -n task-api --timeout=300s
+kubectl wait --for=condition=complete job/activity-service-migrations -n task-api --timeout=300s
+kubectl wait --for=condition=complete job/notification-service-migrations -n task-api --timeout=300s
 
 
 kubectl apply -f user-service/k8s/deployment.yaml
 kubectl apply -f task-service/k8s/deployment.yaml
 kubectl apply -f comment-service/k8s/deployment.yaml
 kubectl apply -f search-service/k8s/deployment.yaml
+kubectl apply -f activity-service/k8s/deployment.yaml
+kubectl apply -f notification-service/k8s/deployment.yaml
+
+# if user/task/comment images were already running before Kafka env/code changes
+kubectl rollout restart deployment/user-service -n task-api
+kubectl rollout restart deployment/task-service -n task-api
+kubectl rollout restart deployment/comment-service -n task-api
 
 
 kubectl apply -f kong-gateway/k8s/configmap.yaml

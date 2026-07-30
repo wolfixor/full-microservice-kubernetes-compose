@@ -20,6 +20,12 @@ class Settings(BaseSettings):
     # Root path for reverse proxy (Kong)
     ROOT_PATH: str = ""
 
+    # Kafka event publishing
+    KAFKA_ENABLED: bool = True
+    KAFKA_BOOTSTRAP_SERVERS: str = "platform-kafka-kafka-bootstrap.kafka.svc:9092"
+    KAFKA_CLIENT_ID: str = "comment-service"
+    KAFKA_PUBLISH_RETRIES: int = 3
+
     # Server
     HOST: str = "0.0.0.0"
     PORT: int = 8003

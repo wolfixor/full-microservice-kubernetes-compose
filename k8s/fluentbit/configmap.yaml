@@ -139,6 +139,8 @@ data:
             ["task-service"]       = "task-service",
             ["comment-service"]    = "comment-service",
             ["search-service"]     = "search-service",
+            ["activity-service"]   = "activity-service",
+            ["notification-service"] = "notification-service",
             ["kong-gateway"]       = "kong",
             ["kong-init"]          = "kong",
             ["postgres"]           = "postgresql",

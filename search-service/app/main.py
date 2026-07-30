@@ -11,6 +11,7 @@ from .api.api import api_router
 from .repositories.search_repository import SearchRepository
 from .core.redis_health import check_redis_health
 from .core.elasticsearch_config import close_elasticsearch_client
+from .core.kafka_event_consumer import start_kafka_event_consumer, stop_kafka_event_consumer
 
 # Setup logging
 setup_logging()
@@ -21,6 +22,7 @@ async def lifespan(app: FastAPI):
     """Lifespan context manager for startup and shutdown events."""
     # Startup: Initialize Elasticsearch index
     logger = logging.getLogger(__name__)
+    kafka_consumer = None
     try:
         repository = SearchRepository()
         await repository.initialize_index()
@@ -28,10 +30,18 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.warning(f"Elasticsearch initialization failed: {e}")
 
+    try:
+        kafka_consumer = start_kafka_event_consumer()
+        logger.info("Kafka event consumer scheduled")
+    except Exception as e:
+        logger.warning(f"Kafka consumer startup failed: {e}")
+
     yield
 
     # Shutdown: Close connections
     logger.info("Search service shutting down")
+    if kafka_consumer:
+        await stop_kafka_event_consumer(*kafka_consumer)
     await close_elasticsearch_client()
 
 

@@ -61,7 +61,7 @@ data:
         regex: (container_.*|machine_.*|kubelet_.*)
         action: keep
 
-    # Application services (user, task, comment, search)
+    # Application services (user, task, comment, search, activity, notification)
     - job_name: microservices
       kubernetes_sd_configs:
       - role: service
@@ -69,7 +69,7 @@ data:
           names: [task-api]
       relabel_configs:
       - source_labels: [__meta_kubernetes_service_label_app]
-        regex: (user-service|task-service|comment-service|search-service)
+        regex: (user-service|task-service|comment-service|search-service|activity-service|notification-service)
         action: keep
       - source_labels: [__meta_kubernetes_service_annotation_prometheus_io_scrape]
         action: keep

@@ -14,18 +14,27 @@ flowchart TB
     Kong --> TS[Task Service :8002]
     Kong --> CS[Comment Service :8003]
     Kong --> SS[Search Service :8004]
+    Kong --> AS[Activity Service :8005]
+    Kong --> NS[Notification Service :8006]
+
+    US -. user.created, user.updated .-> Kafka[(Kafka Event Backbone)]
+    TS -. task.created, task.updated, task.deleted .-> Kafka
+    CS -. comment.created, comment.deleted .-> Kafka
 
     US --> UDB[(PostgreSQL user_db)]
     TS --> TDB[(PostgreSQL task_db)]
     CS --> CDB[(PostgreSQL comment_db)]
     SS --> ES[(Elasticsearch)]
+    AS --> ADB[(PostgreSQL activity_db)]
+    NS --> NDB[(PostgreSQL notification_db)]
 
     US -.-> R[(Redis<br/>cache-aside)]
     TS -.-> R
     CS -.-> R
 
-    TS -. task events .-> SS
-    CS -. comment events .-> SS
+    Kafka -. task/comment events .-> SS
+    Kafka -. all business events .-> AS
+    Kafka -. notification events .-> NS
 
     subgraph Observability
         P[Prometheus] --> G[Grafana]
@@ -41,7 +50,7 @@ flowchart TB
     end
 ```
 
-**Request flow:** external traffic enters through Kong, which routes to the appropriate service. Each service owns its data (database-per-service), reads through Redis with a cache-aside pattern, and exposes `/health` and `/ready` probes consumed by Kubernetes. Task and comment events are ingested into Elasticsearch for full-text search.
+**Request flow:** external traffic enters through Kong, which routes to the appropriate service. Each service owns its data (database-per-service), reads through Redis with a cache-aside pattern, and exposes `/health` and `/ready` probes consumed by Kubernetes. User, task, and comment services publish domain events asynchronously to Kafka after successful writes. Search-service consumes task/comment Kafka events and updates Elasticsearch for full-text search. Activity-service consumes all business events and stores an immutable audit log in PostgreSQL. Notification-service consumes selected events and stores notification records.
 
 **Log flow:** application containers and Kong write logs to stdout/stderr. Kong also uses the `http-log` plugin to send richer request events to a small Kong Log Receiver, which prints structured JSON to stdout. Fluent Bit runs as a DaemonSet, tails `/var/log/containers/*.log` on every node, enriches records with Kubernetes metadata, and ships them to Elasticsearch for Kibana analysis.
 
@@ -51,6 +60,7 @@ flowchart TB
 - **Safe schema migrations** — Alembic migrations run as Kubernetes Jobs *before* service rollout, gated with `kubectl wait`.
 - **Cache-aside caching** — Redis read-through with automatic invalidation on writes, per-service Redis databases, 5-minute TTL with LRU eviction, and graceful degradation when Redis is down.
 - **API gateway routing** — Kong terminates external traffic and routes per path.
+- **Kafka event backbone** — Strimzi-managed Kafka with 3 persistent brokers, replicated topics, async producers, retries, and dead-letter topics.
 - **Kubernetes-native health** — liveness (`/health`) and readiness (`/ready`) probes on every service; Redis health is part of readiness.
 - **Full observability** — Prometheus scraping node, Redis, Elasticsearch, and per-database Postgres exporters; provisioned Grafana dashboards; centralized logging with Fluent Bit, Kong `http-log`, Elasticsearch, and Kibana.
 - **Two deployment targets** — the same system runs on Kubernetes/K3s (manifests per service) or locally via a single `docker-compose.yml` (20 containers).
@@ -63,6 +73,8 @@ flowchart TB
 | task-service | 8002 | Tasks with status tracking (`/api/tasks`) | PostgreSQL + Redis |
 | comment-service | 8003 | Comments on tasks (`/api/comments`) | PostgreSQL + Redis |
 | search-service | 8004 | Full-text search across tasks and comments (`/api/search`) | Elasticsearch |
+| activity-service | 8005 | Immutable audit log of Kafka business events (`/api/activities`) | PostgreSQL |
+| notification-service | 8006 | Stored notifications from selected Kafka events (`/api/notifications`) | PostgreSQL |
 
 Every service is FastAPI-based with structured logging, environment-based configuration, its own Dockerfile, and its own Kubernetes manifests — independently buildable and deployable.
 
@@ -71,7 +83,19 @@ Every service is FastAPI-based with structured logging, environment-based config
 - Elasticsearch-powered full-text search across tasks and comments
 - Multi-field matching (title, content, description) with auto-fuzziness
 - Score-based ranking with recency bias
-- HTTP-based event ingestion from task and comment services (Kafka replaces this in the roadmap)
+- Kafka consumer for task/comment events, with HTTP ingestion endpoints kept as a manual fallback
+
+### Activity Service
+
+- Kafka consumer for user, task, and comment events
+- Immutable PostgreSQL audit log
+- Read-only `GET /activities` endpoint with event type and aggregate filters
+
+### Notification Service
+
+- Kafka consumer for `user.created`, `task.created`, and `comment.created`
+- Stores notification records in PostgreSQL
+- Read-only `GET /notifications` endpoint with user, status, and type filters
 
 ## Quick Start — Docker Compose
 
@@ -102,6 +126,16 @@ kubectl apply -f k8s/redis-deployment.yaml
 kubectl apply -f k8s/elasticsearch-deployment.yaml
 ```
 
+Kafka is managed by Strimzi. Install the operator first, then create the Kafka cluster and topics:
+
+```bash
+kubectl apply -f k8s/kafka/namespace.yaml
+kubectl create -f https://strimzi.io/install/latest?namespace=kafka -n kafka
+kubectl wait deployment/strimzi-cluster-operator -n kafka --for=condition=Available --timeout=300s
+kubectl apply -f k8s/kafka/kafka-cluster.yaml
+kubectl apply -f k8s/kafka/topics.yaml
+```
+
 ### 3. Databases and migrations
 
 Migrations run as Jobs and must complete before the services start:
@@ -110,14 +144,20 @@ Migrations run as Jobs and must complete before the services start:
 kubectl apply -f user-service/k8s/postgres.yaml
 kubectl apply -f task-service/k8s/postgres.yaml
 kubectl apply -f comment-service/k8s/postgres.yaml
+kubectl apply -f activity-service/k8s/postgres.yaml
+kubectl apply -f notification-service/k8s/postgres.yaml
 
 kubectl apply -f user-service/k8s/migration-job.yaml
 kubectl apply -f task-service/k8s/migration-job.yaml
 kubectl apply -f comment-service/k8s/migration-job.yaml
+kubectl apply -f activity-service/k8s/migration-job.yaml
+kubectl apply -f notification-service/k8s/migration-job.yaml
 
 kubectl wait --for=condition=complete job/user-service-migrations    -n task-api --timeout=300s
 kubectl wait --for=condition=complete job/task-service-migrations    -n task-api --timeout=300s
 kubectl wait --for=condition=complete job/comment-service-migrations -n task-api --timeout=300s
+kubectl wait --for=condition=complete job/activity-service-migrations -n task-api --timeout=300s
+kubectl wait --for=condition=complete job/notification-service-migrations -n task-api --timeout=300s
 ```
 
 ### 4. Services and gateway
@@ -127,6 +167,8 @@ kubectl apply -f user-service/k8s/deployment.yaml
 kubectl apply -f task-service/k8s/deployment.yaml
 kubectl apply -f comment-service/k8s/deployment.yaml
 kubectl apply -f search-service/k8s/deployment.yaml
+kubectl apply -f activity-service/k8s/deployment.yaml
+kubectl apply -f notification-service/k8s/deployment.yaml
 
 kubectl apply -f kong-gateway/k8s/
 ```
@@ -150,6 +192,8 @@ curl http://$KONG_IP/users
 curl http://$KONG_IP/tasks
 curl http://$KONG_IP/comments
 curl "http://$KONG_IP/search?q=example"
+curl http://$KONG_IP/activities
+curl http://$KONG_IP/notifications
 ```
 
 Direct service access (internal):
@@ -159,6 +203,8 @@ curl http://localhost:8001/health && curl http://localhost:8001/api/users
 curl http://localhost:8002/health && curl http://localhost:8002/api/tasks
 curl http://localhost:8003/health && curl http://localhost:8003/api/comments
 curl http://localhost:8004/health && curl "http://localhost:8004/api/search?q=example"
+curl http://localhost:8005/health && curl http://localhost:8005/api/activities
+curl http://localhost:8006/health && curl http://localhost:8006/api/notifications
 ```
 
 ## Observability

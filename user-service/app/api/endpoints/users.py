@@ -1,15 +1,27 @@
 """User management endpoints."""
 
 from typing import List
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel, EmailStr
 from datetime import datetime
 
 from ...db.session import get_db
 from ...repositories.cached_user_repository import CachedUserRepository
+from ...core.event_producer import publish_event
 
 router = APIRouter()
+
+
+def _user_payload(user) -> dict:
+    return {
+        "id": user.id,
+        "username": user.username,
+        "email": user.email,
+        "full_name": user.full_name,
+        "created_at": user.created_at.isoformat() if user.created_at else None,
+        "updated_at": user.updated_at.isoformat() if user.updated_at else None,
+    }
 
 
 # Pydantic models for request/response
@@ -60,6 +72,7 @@ async def get_user(
 @router.post("/", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
 async def create_user(
     user_create: UserCreate,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db)
 ):
     """Create a new user."""
@@ -86,6 +99,7 @@ async def create_user(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to create user"
         )
+    background_tasks.add_task(publish_event, "user.created", user.id, _user_payload(user))
     return user
 
 
@@ -93,6 +107,7 @@ async def create_user(
 async def update_user(
     user_id: str,
     user_update: UserCreate,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db)
 ):
     """Update a user."""
@@ -123,6 +138,7 @@ async def update_user(
             )
     
     updated_user = await repository.update(user_id, user_update.dict())
+    background_tasks.add_task(publish_event, "user.updated", updated_user.id, _user_payload(updated_user))
     return updated_user
 
 

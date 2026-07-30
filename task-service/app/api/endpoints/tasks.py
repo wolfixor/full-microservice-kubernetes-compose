@@ -2,7 +2,7 @@
 
 from typing import List, Optional
 from datetime import datetime
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel, Field
 from enum import Enum
@@ -10,8 +10,21 @@ from enum import Enum
 from ...db.session import get_db
 from ...repositories.cached_task_repository import CachedTaskRepository
 from ...models.task import TaskStatus as ModelTaskStatus
+from ...core.event_producer import publish_event
 
 router = APIRouter()
+
+
+def _task_payload(task) -> dict:
+    return {
+        "id": task.id,
+        "title": task.title,
+        "description": task.description,
+        "status": task.status.value if hasattr(task.status, "value") else task.status,
+        "user_id": task.user_id,
+        "created_at": task.created_at.isoformat() if task.created_at else None,
+        "updated_at": task.updated_at.isoformat() if task.updated_at else None,
+    }
 
 
 # Enums and Pydantic models
@@ -75,6 +88,7 @@ async def get_task(
 @router.post("/", response_model=TaskResponse, status_code=status.HTTP_201_CREATED)
 async def create_task(
     task_create: TaskCreate,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db)
 ):
     """Create a new task."""
@@ -90,6 +104,7 @@ async def create_task(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to create task"
         )
+    background_tasks.add_task(publish_event, "task.created", task.id, _task_payload(task))
     return task
 
 
@@ -97,6 +112,7 @@ async def create_task(
 async def update_task(
     task_id: str,
     task_update: TaskUpdate,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db)
 ):
     """Update a task."""
@@ -113,16 +129,19 @@ async def update_task(
     # FastAPI already converts enums to their values in .dict()
     
     updated_task = await repository.update(task_id, update_data)
+    background_tasks.add_task(publish_event, "task.updated", updated_task.id, _task_payload(updated_task))
     return updated_task
 
 
 @router.delete("/{task_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_task(
     task_id: str,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db)
 ):
     """Delete a task."""
     repository = CachedTaskRepository(db)
+    task = await repository.get_by_id(task_id)
     
     success = await repository.delete(task_id)
     if not success:
@@ -130,3 +149,5 @@ async def delete_task(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Task not found"
         )
+    if task:
+        background_tasks.add_task(publish_event, "task.deleted", task_id, _task_payload(task))

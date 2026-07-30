@@ -10,9 +10,10 @@ data:
     # Define services
     services:
     - name: user-service
-      url: http://user-service.task-api.svc.cluster.local/
+      url: http://user-service.task-api.svc.cluster.local/api/users
       routes:
       - name: user-service-route
+        strip_path: true
         paths:
         - /users
         - /users/
@@ -32,9 +33,10 @@ data:
           retry_count: 5
     
     - name: task-service
-      url: http://task-service.task-api.svc.cluster.local/
+      url: http://task-service.task-api.svc.cluster.local/api/tasks
       routes:
       - name: task-service-route
+        strip_path: true
         paths:
         - /tasks
         - /tasks/
@@ -54,9 +56,10 @@ data:
           retry_count: 5
     
     - name: comment-service
-      url: http://comment-service.task-api.svc.cluster.local/
+      url: http://comment-service.task-api.svc.cluster.local/api/comments
       routes:
       - name: comment-service-route
+        strip_path: true
         paths:
         - /comments
         - /comments/
@@ -76,12 +79,59 @@ data:
           retry_count: 5
     
     - name: search-service
-      url: http://search-service.task-api.svc.cluster.local/
+      url: http://search-service.task-api.svc.cluster.local/api/search
       routes:
       - name: search-service-route
+        strip_path: true
         paths:
         - /search
         - /search/
+      plugins:
+      - name: rate-limiting
+        config:
+          minute: 60
+          policy: local
+          fault_tolerant: true
+      - name: http-log
+        config:
+          http_endpoint: http://kong-log-endpoint:8001/
+          method: POST
+          timeout: 1000
+          keepalive: 60000
+          flush_timeout: 2
+          retry_count: 5
+
+    - name: activity-service
+      url: http://activity-service.task-api.svc.cluster.local/api/activities
+      routes:
+      - name: activity-service-route
+        strip_path: true
+        paths:
+        - /activities
+        - /activities/
+      plugins:
+      - name: rate-limiting
+        config:
+          minute: 60
+          policy: local
+          fault_tolerant: true
+      - name: http-log
+        config:
+          http_endpoint: http://kong-log-endpoint:8001/
+          method: POST
+          timeout: 1000
+          keepalive: 60000
+          flush_timeout: 2
+          retry_count: 5
+
+    - name: notification-service
+      url: http://notification-service.task-api.svc.cluster.local/api/notifications
+      routes:
+      - name: notification-service-route
+        strip_path: true
+        paths:
+        - /notifications
+        - /notifications/
       plugins:
       - name: rate-limiting
         config:

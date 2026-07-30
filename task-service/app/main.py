@@ -11,6 +11,7 @@ from .api.api import api_router
 from .db.session import sync_engine, async_engine
 from .db.base import Base
 from .core.redis_health import check_redis_health
+from .core.event_producer import close_event_producer
 
 # Setup logging
 setup_logging()
@@ -32,7 +33,7 @@ async def lifespan(app: FastAPI):
 
     yield
 
-    # Shutdown: Nothing special for now
+    await close_event_producer()
     logging.info("Task service shutting down")
 
 

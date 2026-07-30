@@ -55,6 +55,14 @@ spec:
           value: "300"
         - name: ROOT_PATH
           value: "/tasks"
+        - name: KAFKA_ENABLED
+          value: "true"
+        - name: KAFKA_BOOTSTRAP_SERVERS
+          value: "platform-kafka-kafka-bootstrap.kafka.svc:9092"
+        - name: KAFKA_CLIENT_ID
+          value: "task-service"
+        - name: KAFKA_PUBLISH_RETRIES
+          value: "3"
         livenessProbe:
           httpGet:
             path: /health

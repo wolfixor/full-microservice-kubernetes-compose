@@ -22,6 +22,10 @@ services:
       REDIS_PORT: 6379
       REDIS_DB: 0  # User service uses database 0
       REDIS_PASSWORD: ""
+      KAFKA_ENABLED: "true"
+      KAFKA_BOOTSTRAP_SERVERS: kafka-1:9092,kafka-2:9092,kafka-3:9092
+      KAFKA_CLIENT_ID: user-service
+      KAFKA_PUBLISH_RETRIES: 3
     networks:
       - wolfix-service-network
     depends_on:
@@ -29,6 +33,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
 
   user-service-db:
     image: 185.120.221.119:8083/postgres:17.10-alpine3.22
@@ -75,6 +81,10 @@ services:
       REDIS_PORT: 6379
       REDIS_DB: 1  # Task service uses database 1
       REDIS_PASSWORD: ""
+      KAFKA_ENABLED: "true"
+      KAFKA_BOOTSTRAP_SERVERS: kafka-1:9092,kafka-2:9092,kafka-3:9092
+      KAFKA_CLIENT_ID: task-service
+      KAFKA_PUBLISH_RETRIES: 3
     networks:
       - wolfix-service-network
     depends_on:
@@ -82,6 +92,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
 
   task-service-db:
     image: 185.120.221.119:8083/postgres:17.10-alpine3.22
@@ -128,6 +140,10 @@ services:
       REDIS_PORT: 6379
       REDIS_DB: 2  # Comment service uses database 2
       REDIS_PASSWORD: ""
+      KAFKA_ENABLED: "true"
+      KAFKA_BOOTSTRAP_SERVERS: kafka-1:9092,kafka-2:9092,kafka-3:9092
+      KAFKA_CLIENT_ID: comment-service
+      KAFKA_PUBLISH_RETRIES: 3
     networks:
       - wolfix-service-network
     depends_on:
@@ -135,6 +151,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
 
   comment-service-db:
     image: 185.120.221.119:8083/postgres:17.10-alpine3.22
@@ -176,6 +194,10 @@ services:
       REDIS_PASSWORD: ""
       TASK_SERVICE_URL: http://task-service:8000
       COMMENT_SERVICE_URL: http://comment-service:8000
+      KAFKA_ENABLED: "true"
+      KAFKA_BOOTSTRAP_SERVERS: kafka-1:9092,kafka-2:9092,kafka-3:9092
+      KAFKA_CONSUMER_GROUP_ID: search-service
+      KAFKA_AUTO_OFFSET_RESET: earliest
       PORT: 8000
     networks:
       - wolfix-service-network
@@ -188,6 +210,110 @@ services:
         condition: service_healthy
       comment-service:
         condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
+
+  # ---------------- ACTIVITY SERVICE ----------------
+  activity-service:
+    build:
+      context: ./activity-service
+      dockerfile: Dockerfile
+    image: registry.gitlab.shiveh.com/mapir/upstream/kibana:activity-service
+    container_name: mamad-activity-service
+    ports:
+      - "8005:8000"
+    restart: unless-stopped
+    environment:
+      RUN_MIGRATIONS: "true"
+      POSTGRES_HOST: activity-service-db
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: activity_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      KAFKA_ENABLED: "true"
+      KAFKA_BOOTSTRAP_SERVERS: kafka-1:9092,kafka-2:9092,kafka-3:9092
+      KAFKA_CONSUMER_GROUP_ID: activity-service
+      KAFKA_AUTO_OFFSET_RESET: earliest
+      PORT: 8000
+    networks:
+      - wolfix-service-network
+    depends_on:
+      activity-service-db:
+        condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
+
+  activity-service-db:
+    image: 185.120.221.119:8083/postgres:17.10-alpine3.22
+    container_name: mamad-activity-service-db
+    logging:
+      options:
+        tag: "postgresql"
+    environment:
+      POSTGRES_DB: activity_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - ./place-data/activity_service_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d activity_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - wolfix-service-network
+
+  # ---------------- NOTIFICATION SERVICE ----------------
+  notification-service:
+    build:
+      context: ./notification-service
+      dockerfile: Dockerfile
+    image: registry.gitlab.shiveh.com/mapir/upstream/kibana:notification-service
+    container_name: mamad-notification-service
+    ports:
+      - "8006:8000"
+    restart: unless-stopped
+    environment:
+      RUN_MIGRATIONS: "true"
+      POSTGRES_HOST: notification-service-db
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: notification_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      KAFKA_ENABLED: "true"
+      KAFKA_BOOTSTRAP_SERVERS: kafka-1:9092,kafka-2:9092,kafka-3:9092
+      KAFKA_CONSUMER_GROUP_ID: notification-service
+      KAFKA_AUTO_OFFSET_RESET: earliest
+      PORT: 8000
+    networks:
+      - wolfix-service-network
+    depends_on:
+      notification-service-db:
+        condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
+
+  notification-service-db:
+    image: 185.120.221.119:8083/postgres:17.10-alpine3.22
+    container_name: mamad-notification-service-db
+    logging:
+      options:
+        tag: "postgresql"
+    environment:
+      POSTGRES_DB: notification_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - ./place-data/notification_service_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d notification_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - wolfix-service-network
 
   # ---------------- ELASTICSEARCH ----------------
   elasticsearch:
@@ -234,6 +360,127 @@ services:
     networks:
       - wolfix-service-network
     restart: unless-stopped
+
+  # ---------------- KAFKA EVENT BACKBONE ----------------
+  kafka-1:
+    image: 185.120.221.119:8083/bitnami/kafka:3.7.0
+    container_name: mamad-kafka-1
+    environment:
+      KAFKA_ENABLE_KRAFT: "yes"
+      KAFKA_KRAFT_CLUSTER_ID: abcdefghijklmnopqrstuv
+      KAFKA_CFG_NODE_ID: 1
+      KAFKA_CFG_PROCESS_ROLES: controller,broker
+      KAFKA_CFG_CONTROLLER_QUORUM_VOTERS: 1@kafka-1:9093,2@kafka-2:9093,3@kafka-3:9093
+      KAFKA_CFG_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093
+      KAFKA_CFG_ADVERTISED_LISTENERS: PLAINTEXT://kafka-1:9092
+      KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_CFG_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_CFG_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_CFG_DEFAULT_REPLICATION_FACTOR: 3
+      KAFKA_CFG_OFFSETS_TOPIC_REPLICATION_FACTOR: 3
+      KAFKA_CFG_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 3
+      KAFKA_CFG_TRANSACTION_STATE_LOG_MIN_ISR: 2
+      KAFKA_CFG_MIN_INSYNC_REPLICAS: 2
+      KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE: "false"
+      ALLOW_PLAINTEXT_LISTENER: "yes"
+    volumes:
+      - ./place-data/kafka_1_data:/bitnami/kafka
+    healthcheck:
+      test: ["CMD-SHELL", "kafka-topics.sh --bootstrap-server localhost:9092 --list >/dev/null 2>&1"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 40s
+    networks:
+      - wolfix-service-network
+    restart: unless-stopped
+
+  kafka-2:
+    image: 185.120.221.119:8083/bitnami/kafka:3.7.0
+    container_name: mamad-kafka-2
+    environment:
+      KAFKA_ENABLE_KRAFT: "yes"
+      KAFKA_KRAFT_CLUSTER_ID: abcdefghijklmnopqrstuv
+      KAFKA_CFG_NODE_ID: 2
+      KAFKA_CFG_PROCESS_ROLES: controller,broker
+      KAFKA_CFG_CONTROLLER_QUORUM_VOTERS: 1@kafka-1:9093,2@kafka-2:9093,3@kafka-3:9093
+      KAFKA_CFG_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093
+      KAFKA_CFG_ADVERTISED_LISTENERS: PLAINTEXT://kafka-2:9092
+      KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_CFG_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_CFG_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_CFG_DEFAULT_REPLICATION_FACTOR: 3
+      KAFKA_CFG_OFFSETS_TOPIC_REPLICATION_FACTOR: 3
+      KAFKA_CFG_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 3
+      KAFKA_CFG_TRANSACTION_STATE_LOG_MIN_ISR: 2
+      KAFKA_CFG_MIN_INSYNC_REPLICAS: 2
+      KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE: "false"
+      ALLOW_PLAINTEXT_LISTENER: "yes"
+    volumes:
+      - ./place-data/kafka_2_data:/bitnami/kafka
+    healthcheck:
+      test: ["CMD-SHELL", "kafka-topics.sh --bootstrap-server localhost:9092 --list >/dev/null 2>&1"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 40s
+    networks:
+      - wolfix-service-network
+    restart: unless-stopped
+
+  kafka-3:
+    image: 185.120.221.119:8083/bitnami/kafka:3.7.0
+    container_name: mamad-kafka-3
+    environment:
+      KAFKA_ENABLE_KRAFT: "yes"
+      KAFKA_KRAFT_CLUSTER_ID: abcdefghijklmnopqrstuv
+      KAFKA_CFG_NODE_ID: 3
+      KAFKA_CFG_PROCESS_ROLES: controller,broker
+      KAFKA_CFG_CONTROLLER_QUORUM_VOTERS: 1@kafka-1:9093,2@kafka-2:9093,3@kafka-3:9093
+      KAFKA_CFG_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093
+      KAFKA_CFG_ADVERTISED_LISTENERS: PLAINTEXT://kafka-3:9092
+      KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_CFG_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_CFG_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_CFG_DEFAULT_REPLICATION_FACTOR: 3
+      KAFKA_CFG_OFFSETS_TOPIC_REPLICATION_FACTOR: 3
+      KAFKA_CFG_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 3
+      KAFKA_CFG_TRANSACTION_STATE_LOG_MIN_ISR: 2
+      KAFKA_CFG_MIN_INSYNC_REPLICAS: 2
+      KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE: "false"
+      ALLOW_PLAINTEXT_LISTENER: "yes"
+    volumes:
+      - ./place-data/kafka_3_data:/bitnami/kafka
+    healthcheck:
+      test: ["CMD-SHELL", "kafka-topics.sh --bootstrap-server localhost:9092 --list >/dev/null 2>&1"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 40s
+    networks:
+      - wolfix-service-network
+    restart: unless-stopped
+
+  kafka-init:
+    image: 185.120.221.119:8083/bitnami/kafka:3.7.0
+    container_name: mamad-kafka-init
+    command:
+      - /bin/bash
+      - -c
+      - |
+        set -e
+        for topic in user.created user.updated task.created task.updated task.deleted comment.created comment.deleted user.created.dlq user.updated.dlq task.created.dlq task.updated.dlq task.deleted.dlq comment.created.dlq comment.deleted.dlq; do
+          kafka-topics.sh --bootstrap-server kafka-1:9092,kafka-2:9092,kafka-3:9092 --create --if-not-exists --topic "$$topic" --partitions 3 --replication-factor 3 --config min.insync.replicas=2
+        done
+    networks:
+      - wolfix-service-network
+    depends_on:
+      kafka-1:
+        condition: service_healthy
+      kafka-2:
+        condition: service_healthy
+      kafka-3:
+        condition: service_healthy
 
   # ---------------- PROMETHEUS ----------------
   prometheus:

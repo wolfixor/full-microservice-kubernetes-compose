@@ -23,6 +23,12 @@ class Settings(BaseSettings):
     # Service endpoints for data ingestion (simulated events)
     TASK_SERVICE_URL: str = "http://task-service:8000"
     COMMENT_SERVICE_URL: str = "http://comment-service:8000"
+
+    # Kafka event consumer
+    KAFKA_ENABLED: bool = True
+    KAFKA_BOOTSTRAP_SERVERS: str = "platform-kafka-kafka-bootstrap.kafka.svc:9092"
+    KAFKA_CONSUMER_GROUP_ID: str = "search-service"
+    KAFKA_AUTO_OFFSET_RESET: str = "earliest"
     
     # Root path for reverse proxy (Kong)
     ROOT_PATH: str = ""
