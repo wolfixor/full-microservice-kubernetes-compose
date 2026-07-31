@@ -27,7 +27,8 @@ COPY alembic.ini ./alembic.ini
 COPY alembic/ ./alembic/
 COPY docker-entrypoint.sh /usr/local/bin/
 
-RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+RUN sed -i 's/\r$//' /usr/local/bin/docker-entrypoint.sh \
+    && chmod +x /usr/local/bin/docker-entrypoint.sh
 
 ENV PYTHONPATH=/app
 ENV PYTHONUNBUFFERED=1
@@ -38,7 +39,7 @@ USER appuser
 
 EXPOSE 8000
 
-ENTRYPOINT ["docker-entrypoint.sh"]
+ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
 
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \

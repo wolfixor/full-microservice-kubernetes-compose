@@ -26,6 +26,7 @@ services:
       KAFKA_BOOTSTRAP_SERVERS: kafka-1:9092,kafka-2:9092,kafka-3:9092
       KAFKA_CLIENT_ID: user-service
       KAFKA_PUBLISH_RETRIES: 3
+      ROOT_PATH: /users
     networks:
       - wolfix-service-network
     depends_on:
@@ -85,6 +86,7 @@ services:
       KAFKA_BOOTSTRAP_SERVERS: kafka-1:9092,kafka-2:9092,kafka-3:9092
       KAFKA_CLIENT_ID: task-service
       KAFKA_PUBLISH_RETRIES: 3
+      ROOT_PATH: /tasks
     networks:
       - wolfix-service-network
     depends_on:
@@ -144,6 +146,7 @@ services:
       KAFKA_BOOTSTRAP_SERVERS: kafka-1:9092,kafka-2:9092,kafka-3:9092
       KAFKA_CLIENT_ID: comment-service
       KAFKA_PUBLISH_RETRIES: 3
+      ROOT_PATH: /comments
     networks:
       - wolfix-service-network
     depends_on:
@@ -199,6 +202,7 @@ services:
       KAFKA_CONSUMER_GROUP_ID: search-service
       KAFKA_AUTO_OFFSET_RESET: earliest
       PORT: 8000
+      ROOT_PATH: /search
     networks:
       - wolfix-service-network
     depends_on:
@@ -235,6 +239,7 @@ services:
       KAFKA_CONSUMER_GROUP_ID: activity-service
       KAFKA_AUTO_OFFSET_RESET: earliest
       PORT: 8000
+      ROOT_PATH: /activities
     networks:
       - wolfix-service-network
     depends_on:
@@ -286,6 +291,7 @@ services:
       KAFKA_CONSUMER_GROUP_ID: notification-service
       KAFKA_AUTO_OFFSET_RESET: earliest
       PORT: 8000
+      ROOT_PATH: /notifications
     networks:
       - wolfix-service-network
     depends_on:
@@ -314,6 +320,34 @@ services:
     restart: unless-stopped
     networks:
       - wolfix-service-network
+
+  # ---------------- KONG API GATEWAY ----------------
+  kong-gateway:
+    image: docker.arvancloud.ir/kong:3.5
+    container_name: mamad-kong-gateway
+    restart: unless-stopped
+    environment:
+      KONG_DATABASE: "off"
+      KONG_DECLARATIVE_CONFIG: /usr/local/kong/declarative/kong.yaml
+      KONG_PROXY_ACCESS_LOG: /dev/stdout
+      KONG_ADMIN_ACCESS_LOG: /dev/stdout
+      KONG_PROXY_ERROR_LOG: /dev/stderr
+      KONG_ADMIN_ERROR_LOG: /dev/stderr
+      KONG_ADMIN_LISTEN: 0.0.0.0:8001
+    volumes:
+      - ./kong-gateway/compose/kong.yaml:/usr/local/kong/declarative/kong.yaml:ro
+    ports:
+      - "8888:8000"
+      - "8007:8001"
+    networks:
+      - wolfix-service-network
+    depends_on:
+      - user-service
+      - task-service
+      - comment-service
+      - search-service
+      - activity-service
+      - notification-service
 
   # ---------------- ELASTICSEARCH ----------------
   elasticsearch:

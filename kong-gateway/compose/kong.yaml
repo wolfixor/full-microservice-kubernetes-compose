@@ -1,0 +1,105 @@
+_format_version: "3.0"
+
+services:
+- name: user-service
+  url: http://user-service:8000/api/users
+  routes:
+  - name: user-service-route
+    strip_path: true
+    paths:
+    - /users
+    - /users/
+  plugins:
+  - name: rate-limiting
+    config:
+      minute: 60
+      policy: local
+      fault_tolerant: true
+
+- name: task-service
+  url: http://task-service:8000/api/tasks
+  routes:
+  - name: task-service-route
+    strip_path: true
+    paths:
+    - /tasks
+    - /tasks/
+  plugins:
+  - name: rate-limiting
+    config:
+      minute: 60
+      policy: local
+      fault_tolerant: true
+
+- name: comment-service
+  url: http://comment-service:8000/api/comments
+  routes:
+  - name: comment-service-route
+    strip_path: true
+    paths:
+    - /comments
+    - /comments/
+  plugins:
+  - name: rate-limiting
+    config:
+      minute: 60
+      policy: local
+      fault_tolerant: true
+
+- name: search-service
+  url: http://search-service:8000/api/search
+  routes:
+  - name: search-service-route
+    strip_path: true
+    paths:
+    - /search
+    - /search/
+  plugins:
+  - name: rate-limiting
+    config:
+      minute: 60
+      policy: local
+      fault_tolerant: true
+
+- name: activity-service
+  url: http://activity-service:8000/api/activities
+  routes:
+  - name: activity-service-route
+    strip_path: true
+    paths:
+    - /activities
+    - /activities/
+  plugins:
+  - name: rate-limiting
+    config:
+      minute: 60
+      policy: local
+      fault_tolerant: true
+
+- name: notification-service
+  url: http://notification-service:8000/api/notifications
+  routes:
+  - name: notification-service-route
+    strip_path: true
+    paths:
+    - /notifications
+    - /notifications/
+  plugins:
+  - name: rate-limiting
+    config:
+      minute: 60
+      policy: local
+      fault_tolerant: true
+
+plugins:
+- name: correlation-id
+  config:
+    header_name: Kong-Request-ID
+    generator: uuid
+    echo_downstream: true
+- name: prometheus
+  config:
+    status_code_metrics: true
+    latency_metrics: true
+    bandwidth_metrics: true
+    upstream_health_metrics: true

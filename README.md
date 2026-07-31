@@ -45,6 +45,13 @@ flowchart TB
         Exporters[Node / Redis / PostgreSQL / Elasticsearch exporters] --> SM
     end
 
+    subgraph ProgressiveDelivery
+        AR[Argo Rollouts Controller] --> TRO[Task Service Rollout]
+        TRO --> ANA[Prometheus AnalysisTemplate]
+        ANA --> Prom
+        TRO --> TS
+    end
+
     subgraph Logs
         Kong -.->|stdout| FB[Fluent Bit]
         US -.->|stdout JSON| FB
@@ -92,6 +99,16 @@ ServiceMonitor CRs
   -> Grafana
 ```
 
+**Canary release flow**
+
+```text
+new task-service image
+  -> Argo Rollouts
+  -> 10%, 25%, 50%, 100% canary steps
+  -> Prometheus checks error rate and latency
+  -> promote or rollback
+```
+
 **Log flow**
 
 ```text
@@ -126,6 +143,8 @@ container stdout/stderr
 | Prometheus | Metrics storage and query engine |
 | ServiceMonitor | Declarative scrape target definition |
 | Grafana | Metrics dashboards |
+| Argo Rollouts | Canary releases and automated rollback |
+| AnalysisTemplate | Prometheus-based rollout checks |
 
 ## What This Project Demonstrates
 
@@ -138,6 +157,7 @@ container stdout/stderr
 - Async Kafka producers with retries and DLQ topics
 - Multiple independent Kafka consumers for the same events
 - Operator-managed Prometheus with `Prometheus` and `ServiceMonitor` CRDs
+- Canary deployment with Argo Rollouts and Prometheus analysis
 - Centralized logging with Fluent Bit, Elasticsearch, and Kibana
 - Docker Compose parity for local learning
 
@@ -238,7 +258,19 @@ kubectl apply -f k8s/monitoring/grafana-dashboards.yaml
 kubectl apply -f k8s/monitoring/grafana-deployment.yaml
 ```
 
-### 7. Logging
+### 7. Argo Rollouts For Task Service
+
+```bash
+kubectl create namespace argo-rollouts
+kubectl apply -n argo-rollouts -f https://github.com/argoproj/argo-rollouts/releases/v1.9.0/download/install.yaml
+kubectl wait deployment/argo-rollouts -n argo-rollouts --for=condition=Available --timeout=300s
+
+kubectl apply -f task-service/k8s/analysis-template.yaml
+kubectl delete deployment task-service -n task-api
+kubectl apply -f task-service/k8s/rollout.yaml
+```
+
+### 8. Logging
 
 ```bash
 kubectl apply -f k8s/kibana-deployment.yaml
@@ -282,6 +314,7 @@ curl "http://localhost:8888/search/?q=Kafka"
 - [Notification service](docs/notification-service.md)
 - [Prometheus stack](docs/prometheus-stack.md)
 - [Operator and CRD](docs/operator-crd.md)
+- [Argo Rollouts](docs/argo-rollouts.md)
 - [ELK stack](docs/elk-stack.md)
 - [Kafka tests](docs/test-kafka.md)
 
@@ -293,7 +326,29 @@ For local learning:
 docker compose up -d
 ```
 
-The Compose stack keeps local parity for services, databases, Redis, Kafka, Elasticsearch, Prometheus, Grafana, Kibana, and Fluent Bit.
+The Compose stack keeps local parity for services, databases, Redis, Kafka, Kong, Elasticsearch, Prometheus, Grafana, Kibana, and Fluent Bit.
+
+Use Kong in Compose:
+
+```bash
+curl http://localhost:8888/users/
+curl http://localhost:8888/tasks/
+curl http://localhost:8888/comments/
+curl http://localhost:8888/search/
+curl http://localhost:8888/activities/
+curl http://localhost:8888/notifications/
+```
+
+Swagger docs through Kong:
+
+```text
+http://localhost:8888/users/docs
+http://localhost:8888/tasks/docs
+http://localhost:8888/comments/docs
+http://localhost:8888/search/docs
+http://localhost:8888/activities/docs
+http://localhost:8888/notifications/docs
+```
 
 ## Author
 

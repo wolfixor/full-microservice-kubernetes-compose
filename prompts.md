@@ -431,7 +431,13 @@ Generate:
 
 - Rollout resources
 - Analysis templates
-- Traffic policies
+- Basic canary rollout using pod ratio
+
+Explain clearly:
+
+- basic canary means 10%, 25%, and 50% are based on pod count
+- this is not exact request-level traffic splitting
+- exact traffic splitting needs a traffic router
 ```
 
 ### prompt 15:
@@ -572,4 +578,64 @@ Provide:
 - recovery point objectives
 
 Document full recovery workflows.
+```
+
+### prompt 21:
+
+```
+Upgrade Argo Rollouts to exact traffic splitting.
+
+Current state:
+
+- Argo Rollouts is already introduced with a basic canary rollout
+- basic canary uses pod ratio, not exact request-level traffic percentage
+- Kong public API paths must stay unchanged
+
+Goal:
+
+Make canary releases more production-like by adding a real traffic router.
+
+Requirements:
+
+- choose one traffic router: Istio, Gateway API, or NGINX Ingress
+- add stable and canary Services
+- configure Argo Rollouts trafficRouting
+- support exact 10%, 25%, 50%, and 100% request-level traffic split
+- keep Prometheus AnalysisTemplate checks for error rate and latency
+- explain how exact traffic splitting differs from pod-ratio canary
+
+Keep existing APIs unchanged.
+```
+
+### prompt 22:
+
+```
+Introduce Argo CD and prepare for full CI/CD.
+
+Important:
+
+- full CI/CD is part of the target platform
+- this step adds the GitOps foundation only
+- do not implement pipeline automation in this step
+- image build, image push, tests, security scans, and pipeline triggers come later
+
+Goal:
+
+Deploy and reconcile the existing Kubernetes manifests from Git using Argo CD.
+
+Requirements:
+
+- install Argo CD in Kubernetes
+- create Argo CD Applications for the platform manifests
+- organize manifests so Argo CD can sync them safely
+- explain sync status, health status, drift, reconciliation, and rollback
+- keep Argo Rollouts responsible for progressive delivery
+- keep Prometheus responsible for rollout health checks
+
+Explain clearly:
+
+- Argo CD answers what should be deployed from Git
+- Argo Rollouts answers how a new version should be released
+- CI/CD will later build, test, scan, push images, and update manifests
+- Argo CD and Argo Rollouts can work together in the final pipeline
 ```
