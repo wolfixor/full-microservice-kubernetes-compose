@@ -2,7 +2,7 @@
 
 A production-style learning platform for microservices, Kubernetes, event-driven architecture, and observability.
 
-The project now includes independent FastAPI services, database-per-service isolation, Kong Gateway, Redis caching, Elasticsearch search, Strimzi Kafka, Kafka consumers, operator-managed Prometheus, Grafana dashboards, Fluent Bit logging, Elasticsearch log storage, and Kibana.
+The project now includes independent FastAPI services, database-per-service isolation, Kong Gateway, Redis Cluster caching, Elasticsearch search, Strimzi Kafka, Kafka consumers, operator-managed Prometheus, Grafana dashboards, Fluent Bit logging, Elasticsearch log storage, and Kibana.
 
 ## Architecture
 
@@ -18,13 +18,14 @@ flowchart TB
     Kong --> NS[Notification Service]
 
     US --> UDB[(PostgreSQL user_db)]
-    TS --> TDB[(PostgreSQL task_db)]
+    TS --> Pooler[PgBouncer task-db-pooler-rw]
+    Pooler --> TDB[(CloudNativePG task_db)]
     CS --> CDB[(PostgreSQL comment_db)]
     AS --> ADB[(PostgreSQL activity_db)]
     NS --> NDB[(PostgreSQL notification_db)]
     SS --> ES[(Elasticsearch search index)]
 
-    US -.->|cache| Redis[(Redis)]
+    US -.->|cache| Redis[(Redis Cluster)]
     TS -.->|cache| Redis
     CS -.->|cache| Redis
 
@@ -134,8 +135,10 @@ container stdout/stderr
 | Component | Role |
 |---|---|
 | Kong Gateway | Public entry point and path routing |
-| Redis | Cache-aside layer for core CRUD services |
+| Redis Cluster | Sharded cache-aside layer for core CRUD services |
 | Kafka / Strimzi | Persistent event backbone |
+| CloudNativePG | Operator-managed PostgreSQL for task-service |
+| PgBouncer | Database connection pooling for task-service |
 | Elasticsearch | Search index and log storage |
 | Fluent Bit | Kubernetes log collection |
 | Kibana | Log exploration |
@@ -150,8 +153,10 @@ container stdout/stderr
 
 - Database-per-service isolation
 - Kubernetes Deployments, StatefulSets, Services, Secrets, PVCs, and Jobs
+- Operator-managed PostgreSQL with CloudNativePG
+- PgBouncer connection pooling for PostgreSQL
 - Kong API Gateway routing and plugins
-- Redis cache-aside pattern
+- Redis Cluster cache-aside pattern with key-prefix isolation
 - Elasticsearch-backed search
 - Strimzi-managed Kafka with replicated topics
 - Async Kafka producers with retries and DLQ topics
@@ -168,7 +173,9 @@ container stdout/stderr
 ```bash
 kubectl apply -f k8s/namespace.yaml
 kubectl apply -f k8s/secret.yaml
-kubectl apply -f k8s/redis-deployment.yaml
+kubectl apply -f k8s/redis-cluster.yaml
+kubectl rollout status statefulset/redis-cluster -n task-api --timeout=300s
+kubectl wait --for=condition=complete job/redis-cluster-init -n task-api --timeout=300s
 kubectl apply -f k8s/elasticsearch-deployment.yaml
 ```
 
@@ -182,17 +189,29 @@ kubectl apply -f k8s/kafka/kafka-cluster.yaml
 kubectl apply -f k8s/kafka/topics.yaml
 ```
 
-### 3. Databases
+### 3. CloudNativePG For Task Database
+
+```bash
+kubectl apply --server-side -f https://raw.githubusercontent.com/cloudnative-pg/cloudnative-pg/release-1.30/releases/cnpg-1.30.0.yaml
+kubectl wait deployment/cnpg-controller-manager -n cnpg-system --for=condition=Available --timeout=300s
+
+kubectl apply -f task-service/k8s/postgres-cnpg.yaml
+kubectl wait cluster/task-db -n task-api --for=condition=Ready --timeout=600s
+kubectl apply -f task-service/k8s/pooler.yaml
+```
+
+### 4. Other Databases
 
 ```bash
 kubectl apply -f user-service/k8s/postgres.yaml
-kubectl apply -f task-service/k8s/postgres.yaml
 kubectl apply -f comment-service/k8s/postgres.yaml
 kubectl apply -f activity-service/k8s/postgres.yaml
 kubectl apply -f notification-service/k8s/postgres.yaml
 ```
 
-### 4. Migrations
+Do not apply `task-service/k8s/postgres-statefulset-manual.yaml` when using CloudNativePG for `task-service`.
+
+### 5. Migrations
 
 ```bash
 kubectl apply -f user-service/k8s/migration-job.yaml
@@ -208,7 +227,7 @@ kubectl wait --for=condition=complete job/activity-service-migrations -n task-ap
 kubectl wait --for=condition=complete job/notification-service-migrations -n task-api --timeout=300s
 ```
 
-### 5. Services And Gateway
+### 6. Services And Gateway
 
 ```bash
 kubectl apply -f user-service/k8s/deployment.yaml
@@ -221,7 +240,7 @@ kubectl apply -f notification-service/k8s/deployment.yaml
 kubectl apply -f kong-gateway/k8s/
 ```
 
-### 6. Operator-Managed Prometheus
+### 7. Operator-Managed Prometheus
 
 ```bash
 kubectl apply -f k8s/monitoring/namespace.yaml
@@ -258,7 +277,7 @@ kubectl apply -f k8s/monitoring/grafana-dashboards.yaml
 kubectl apply -f k8s/monitoring/grafana-deployment.yaml
 ```
 
-### 7. Argo Rollouts For Task Service
+### 8. Argo Rollouts For Task Service
 
 ```bash
 kubectl create namespace argo-rollouts
@@ -270,7 +289,7 @@ kubectl delete deployment task-service -n task-api
 kubectl apply -f task-service/k8s/rollout.yaml
 ```
 
-### 8. Logging
+### 9. Logging
 
 ```bash
 kubectl apply -f k8s/kibana-deployment.yaml
@@ -312,11 +331,15 @@ curl "http://localhost:8888/search/?q=Kafka"
 - [Kafka stack](docs/kafka-stack.md)
 - [Activity service](docs/activity-service.md)
 - [Notification service](docs/notification-service.md)
+- [CloudNativePG](docs/cloudnative-pg.md)
+- [PostgreSQL cutover](docs/postgres-cutover.md)
+- [Redis Cluster](docs/redis-cluster.md)
 - [Prometheus stack](docs/prometheus-stack.md)
 - [Operator and CRD](docs/operator-crd.md)
 - [Argo Rollouts](docs/argo-rollouts.md)
 - [ELK stack](docs/elk-stack.md)
 - [Kafka tests](docs/test-kafka.md)
+- [Production checklist](docs/production-checklist.md)
 
 ## Docker Compose
 

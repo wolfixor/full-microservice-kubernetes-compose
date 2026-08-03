@@ -10,6 +10,8 @@ type: Opaque
 stringData:
   POSTGRES_USER: "postgres"
   POSTGRES_PASSWORD: "postgres"
+  TASK_POSTGRES_USER: "task_app"
+  TASK_POSTGRES_PASSWORD: "task_app_password"
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -101,14 +103,14 @@ spec:
           valueFrom:
             secretKeyRef:
               name: postgres-credentials
-              key: POSTGRES_USER
+              key: TASK_POSTGRES_USER
         - name: POSTGRES_PASSWORD
           valueFrom:
             secretKeyRef:
               name: postgres-credentials
-              key: POSTGRES_PASSWORD
+              key: TASK_POSTGRES_PASSWORD
         - name: DATA_SOURCE_NAME
-          value: "postgresql://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@task-service-db.task-api.svc.cluster.local:5432/task_db?sslmode=disable"
+          value: "postgresql://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@task-db-pooler-rw.task-api.svc.cluster.local:5432/task_db?sslmode=disable"
         resources:
           requests:
             memory: "64Mi"

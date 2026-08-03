@@ -1,126 +1,118 @@
-# Operator and CRD
+# Operator, CRD, and Controller
 
-## Manual Way
+## Mental Model
 
-Kubernetes already knows normal resources:
+Kubernetes has built-in kinds:
 
 ```text
+Pod
 Deployment
-Service
-ConfigMap
-Secret
-PVC
 StatefulSet
+Service
+Secret
+ConfigMap
+Job
 ```
 
-Before, Prometheus was manual:
+A `CRD` teaches Kubernetes a new kind.
 
 ```text
-prometheus-config.yaml
-  -> ConfigMap with prometheus.yml
-
-prometheus-deployment.yaml
-  -> Deployment running Prometheus
+CRD = Custom Resource Definition
 ```
 
-So we had to write scrape config ourselves.
+After installing a CRD, Kubernetes can store and understand a new resource type.
 
-```text
-you write prometheus.yml
-  -> Prometheus reads it
-  -> Prometheus scrapes targets
-```
+## Controller
 
-## CRD
+A controller is a pod running inside Kubernetes.
 
-`CRD` means Custom Resource Definition.
+It watches resources and makes the real objects.
 
-It teaches Kubernetes a new resource type.
-
-After installing Prometheus Operator CRDs, Kubernetes understands:
-
-```text
-Prometheus
-ServiceMonitor
-PodMonitor
-PrometheusRule
-Alertmanager
-```
-
-So this becomes valid:
-
-```bash
-kubectl get prometheus -n monitoring
-kubectl get servicemonitor -n monitoring
-```
-
-## Operator
-
-An operator is a controller running inside Kubernetes.
-
-It watches custom resources and creates the real Kubernetes objects.
-
-Normal Kubernetes controller:
+Built-in example:
 
 ```text
 Deployment
+  -> Kubernetes deployment controller
   -> ReplicaSet
   -> Pods
 ```
 
-Prometheus Operator:
+Custom example:
 
 ```text
-Prometheus CR
-  -> StatefulSet
-  -> Prometheus pod
-  -> generated config
+Rollout CR
+  -> Argo Rollouts controller
+  -> ReplicaSet
+  -> Pods
 ```
 
-## Current Prometheus Flow
+## Operator
+
+An operator is a controller for a specific product.
+
+It usually installs:
 
 ```text
-Prometheus Operator
-  -> watches Prometheus CR
-  -> watches ServiceMonitor CRs
-  -> generates scrape config
-  -> creates Prometheus StatefulSet
+CRDs
+controller pod
+RBAC permissions
 ```
 
-`Prometheus` CR says how Prometheus should run:
+## Argo Rollouts Example
 
-```text
-replicas
-storage
-retention
-version
-ServiceMonitor selector
+Install:
+
+```bash
+kubectl apply -n argo-rollouts -f https://github.com/argoproj/argo-rollouts/releases/v1.9.0/download/install.yaml
 ```
 
-`ServiceMonitor` CR says what Prometheus should scrape:
+This adds new kinds:
 
 ```text
-which Service labels
-which port
-which path
-which namespace
+Rollout
+AnalysisTemplate
+AnalysisRun
 ```
 
-## Old vs New
-
-Old manual way:
+Then this works:
 
 ```text
-you write prometheus.yml
-you write Prometheus Deployment
+task-service/k8s/rollout.yaml
+  -> Rollout/task-service
+  -> Argo controller creates ReplicaSets and Pods
 ```
 
-New operator way:
+## CloudNativePG Example
+
+Install:
+
+```bash
+kubectl apply --server-side -f https://raw.githubusercontent.com/cloudnative-pg/cloudnative-pg/release-1.30/releases/cnpg-1.30.0.yaml
+```
+
+This adds new kinds:
 
 ```text
-you write Prometheus CR
-you write ServiceMonitor CRs
-operator creates StatefulSet and config
+Cluster
+Pooler
+Backup
+ScheduledBackup
+```
+
+Then this works:
+
+```text
+task-service/k8s/postgres-cnpg.yaml
+  -> Cluster/task-db
+  -> CloudNativePG controller creates PostgreSQL pods, PVCs, and services
+```
+
+And:
+
+```text
+task-service/k8s/pooler.yaml
+  -> Pooler/task-db-pooler-rw
+  -> CloudNativePG controller creates PgBouncer pods and service
 ```
 
 ## Source of Truth
@@ -128,23 +120,20 @@ operator creates StatefulSet and config
 Manual way:
 
 ```text
-prometheus.yml is source of truth
+you create the low-level Kubernetes objects
 ```
 
 Operator way:
 
 ```text
-Prometheus CR + ServiceMonitor CRs are source of truth
+you create the custom resource
+operator creates the low-level Kubernetes objects
 ```
 
-So when we add a new service later:
+Short version:
 
 ```text
-add /metrics endpoint
-add Kubernetes Service
-add ServiceMonitor
-operator updates Prometheus config
+CRD = new Kubernetes kind
+Custom Resource = your YAML using that kind
+Controller/Operator = pod that makes it real
 ```
-
-No manual `prometheus.yml`.
-

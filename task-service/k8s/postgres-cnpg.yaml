@@ -1,0 +1,39 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: task-db-app
+  namespace: task-api
+type: kubernetes.io/basic-auth
+stringData:
+  username: task_app
+  password: task_app_password
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: task-db
+  namespace: task-api
+  labels:
+    app: task-db
+spec:
+  instances: 3
+  imageName: ghcr.io/cloudnative-pg/postgresql:15.8
+  primaryUpdateStrategy: unsupervised
+
+  bootstrap:
+    initdb:
+      database: task_db
+      owner: task_app
+      secret:
+        name: task-db-app
+
+  storage:
+    size: 1Gi
+
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: 1000m
+      memory: 1Gi

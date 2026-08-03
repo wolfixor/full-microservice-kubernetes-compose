@@ -1,0 +1,18 @@
+apiVersion: postgresql.cnpg.io/v1
+kind: Pooler
+metadata:
+  name: task-db-pooler-rw
+  namespace: task-api
+  labels:
+    app: task-db-pooler
+spec:
+  cluster:
+    name: task-db
+  type: rw
+  instances: 2
+
+  pgbouncer:
+    poolMode: transaction
+    parameters:
+      max_client_conn: "100"
+      default_pool_size: "20"

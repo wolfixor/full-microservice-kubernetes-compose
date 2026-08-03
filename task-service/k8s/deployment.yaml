@@ -23,7 +23,7 @@ spec:
         - containerPort: 8000
         env:
         - name: POSTGRES_HOST
-          value: "task-service-db"
+          value: "task-db-pooler-rw"
         - name: POSTGRES_PORT
           value: "5432"
         - name: POSTGRES_DB
@@ -31,19 +31,21 @@ spec:
         - name: POSTGRES_USER
           valueFrom:
             secretKeyRef:
-              name: postgres-credentials
-              key: POSTGRES_USER
+              name: task-db-app
+              key: username
         - name: POSTGRES_PASSWORD
           valueFrom:
             secretKeyRef:
-              name: postgres-credentials
-              key: POSTGRES_PASSWORD
+              name: task-db-app
+              key: password
         - name: REDIS_HOST
-          value: "redis-service"
+          value: "redis-cluster"
         - name: REDIS_PORT
           value: "6379"
         - name: REDIS_DB
-          value: "1"
+          value: "0"
+        - name: REDIS_CLUSTER_ENABLED
+          value: "true"
         - name: REDIS_PASSWORD
           valueFrom:
             secretKeyRef:

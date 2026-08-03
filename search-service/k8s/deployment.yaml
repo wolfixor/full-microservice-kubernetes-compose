@@ -44,11 +44,13 @@ spec:
             - name: ELASTICSEARCH_PORT
               value: "9200"
             - name: REDIS_HOST
-              value: "redis-service"
+              value: "redis-cluster"
             - name: REDIS_PORT
               value: "6379"
             - name: REDIS_DB
-              value: "3"
+              value: "0"
+            - name: REDIS_CLUSTER_ENABLED
+              value: "true"
             - name: REDIS_PASSWORD
               valueFrom:
                 secretKeyRef:

@@ -29,7 +29,8 @@ class CachedCommentRepository:
                 host=redis_settings.REDIS_HOST,
                 port=redis_settings.REDIS_PORT,
                 db=redis_settings.REDIS_DB,
-                password=redis_settings.REDIS_PASSWORD
+                password=redis_settings.REDIS_PASSWORD,
+                cluster_enabled=redis_settings.REDIS_CLUSTER_ENABLED,
             )
             self.redis_cache = RedisCache(redis_client)
     

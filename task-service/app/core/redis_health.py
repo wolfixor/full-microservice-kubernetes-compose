@@ -13,7 +13,8 @@ async def check_redis_health() -> Dict[str, Any]:
             host=redis_settings.REDIS_HOST,
             port=redis_settings.REDIS_PORT,
             db=redis_settings.REDIS_DB,
-            password=redis_settings.REDIS_PASSWORD
+            password=redis_settings.REDIS_PASSWORD,
+            cluster_enabled=redis_settings.REDIS_CLUSTER_ENABLED,
         )
         
         # Test connection
@@ -32,6 +33,8 @@ async def check_redis_health() -> Dict[str, Any]:
             "connected_clients": info.get("connected_clients", 0),
             "role": info.get("role", "unknown"),
             "db_size": info.get(f"db{redis_settings.REDIS_DB}", {}).get("keys", 0)
+            if isinstance(info.get(f"db{redis_settings.REDIS_DB}"), dict)
+            else 0,
         }
     except Exception as e:
         logging.error(f"Redis health check failed: {e}")

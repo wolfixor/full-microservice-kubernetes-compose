@@ -11,6 +11,7 @@ class RedisSettings(BaseSettings):
     REDIS_PORT: int = 6379
     REDIS_DB: int = 0
     REDIS_PASSWORD: str = ""
+    REDIS_CLUSTER_ENABLED: bool = False
     REDIS_KEY_PREFIX: str = "task"
     CACHE_EXPIRE_SECONDS: int = 300  # 5 minutes
     

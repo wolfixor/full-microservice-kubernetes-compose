@@ -19,6 +19,8 @@ class Settings(BaseSettings):
     REDIS_PORT: int = 6379
     REDIS_DB: int = 3  # Different DB than other services
     REDIS_PASSWORD: str = ""
+    REDIS_CLUSTER_ENABLED: bool = False
+    REDIS_KEY_PREFIX: str = "search"
     
     # Service endpoints for data ingestion (simulated events)
     TASK_SERVICE_URL: str = "http://task-service:8000"

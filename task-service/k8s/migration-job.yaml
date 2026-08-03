@@ -12,7 +12,7 @@ spec:
         command: ["/bin/bash", "-c", "alembic upgrade head"]
         env:
         - name: POSTGRES_HOST
-          value: "task-service-db"
+          value: "task-db-rw"
         - name: POSTGRES_PORT
           value: "5432"
         - name: POSTGRES_DB
@@ -20,12 +20,12 @@ spec:
         - name: POSTGRES_USER
           valueFrom:
             secretKeyRef:
-              name: postgres-credentials
-              key: POSTGRES_USER
+              name: task-db-app
+              key: username
         - name: POSTGRES_PASSWORD
           valueFrom:
             secretKeyRef:
-              name: postgres-credentials
-              key: POSTGRES_PASSWORD
+              name: task-db-app
+              key: password
       restartPolicy: Never
   backoffLimit: 3

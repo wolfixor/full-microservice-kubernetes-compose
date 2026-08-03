@@ -1,16 +1,16 @@
 """Redis utility module for all microservices."""
 
 import json
-import asyncio
-from typing import Optional, Any
+from typing import Optional
 from redis.asyncio import Redis
+from redis.asyncio.cluster import RedisCluster
 from redis.exceptions import ConnectionError, TimeoutError
 
 
 class RedisCache:
     """Redis cache manager with cache-aside pattern."""
     
-    def __init__(self, redis_client: Redis):
+    def __init__(self, redis_client: Redis | RedisCluster):
         self.redis = redis_client
     
     async def get(self, key: str) -> Optional[dict]:
@@ -57,9 +57,29 @@ class RedisCache:
             return False
 
 
-async def create_redis_client(host: str = "redis-service", port: int = 6379, 
-                              db: int = 0, password: Optional[str] = None) -> Redis:
+async def create_redis_client(
+    host: str = "redis-service",
+    port: int = 6379,
+    db: int = 0,
+    password: Optional[str] = None,
+    cluster_enabled: bool = False,
+) -> Redis | RedisCluster:
     """Create Redis client with connection pool."""
+    if cluster_enabled:
+        connection_kwargs = {
+            "host": host,
+            "port": port,
+            "decode_responses": True,
+            "socket_timeout": 5,
+            "socket_connect_timeout": 5,
+            "require_full_coverage": False,
+        }
+
+        if password:
+            connection_kwargs["password"] = password
+
+        return RedisCluster(**connection_kwargs)
+
     connection_kwargs = {
         "host": host,
         "port": port,

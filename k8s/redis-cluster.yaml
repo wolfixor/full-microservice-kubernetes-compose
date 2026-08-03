@@ -1,0 +1,197 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: redis-cluster-config
+  namespace: task-api
+data:
+  redis.conf: |
+    port 6379
+    bind 0.0.0.0
+    protected-mode no
+    cluster-enabled yes
+    cluster-config-file nodes.conf
+    cluster-node-timeout 5000
+    cluster-preferred-endpoint-type hostname
+    appendonly yes
+    appendfsync everysec
+    save 900 1
+    save 300 10
+    save 60 10000
+    maxmemory 256mb
+    maxmemory-policy allkeys-lru
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-cluster-headless
+  namespace: task-api
+  labels:
+    app: redis-cluster
+spec:
+  clusterIP: None
+  selector:
+    app: redis-cluster
+  ports:
+  - name: redis
+    port: 6379
+    targetPort: 6379
+  - name: cluster-bus
+    port: 16379
+    targetPort: 16379
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-cluster
+  namespace: task-api
+  labels:
+    app: redis-cluster
+spec:
+  selector:
+    app: redis-cluster
+  ports:
+  - name: redis
+    port: 6379
+    targetPort: 6379
+  type: ClusterIP
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: redis-cluster
+  namespace: task-api
+  labels:
+    app: redis-cluster
+spec:
+  serviceName: redis-cluster-headless
+  replicas: 6
+  selector:
+    matchLabels:
+      app: redis-cluster
+  template:
+    metadata:
+      labels:
+        app: redis-cluster
+    spec:
+      containers:
+      - name: redis
+        image: redis:7-alpine
+        command:
+        - sh
+        - -c
+        - |
+          if [ -f /data/nodes.conf ]; then
+            for i in 0 1 2 3 4 5; do
+              node_fqdn="redis-cluster-${i}.redis-cluster-headless.task-api.svc.cluster.local"
+              node_ip="$(getent hosts "$node_fqdn" | awk '{print $1}' | head -n 1)"
+              if [ -n "$node_ip" ]; then
+                sed -i "/${node_fqdn}/ s/[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*/${node_ip}/" /data/nodes.conf
+              fi
+            done
+            sed -i "/myself/ s/[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*/${POD_IP}/" /data/nodes.conf
+          fi
+
+          POD_FQDN="$(hostname).redis-cluster-headless.task-api.svc.cluster.local"
+          exec redis-server /usr/local/etc/redis/redis.conf \
+            --requirepass "$REDIS_PASSWORD" \
+            --masterauth "$REDIS_PASSWORD" \
+            --cluster-announce-ip "$POD_IP" \
+            --cluster-announce-hostname "$POD_FQDN" \
+            --cluster-announce-port 6379 \
+            --cluster-announce-bus-port 16379
+        env:
+        - name: POD_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+        - name: REDIS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: postgres-credentials
+              key: REDIS_PASSWORD
+        ports:
+        - name: redis
+          containerPort: 6379
+        - name: cluster-bus
+          containerPort: 16379
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "100m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        volumeMounts:
+        - name: redis-config
+          mountPath: /usr/local/etc/redis/redis.conf
+          subPath: redis.conf
+        - name: redis-data
+          mountPath: /data
+        livenessProbe:
+          tcpSocket:
+            port: redis
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          exec:
+            command:
+            - sh
+            - -c
+            - redis-cli -a "$REDIS_PASSWORD" ping | grep PONG
+          initialDelaySeconds: 10
+          periodSeconds: 5
+      volumes:
+      - name: redis-config
+        configMap:
+          name: redis-cluster-config
+  volumeClaimTemplates:
+  - metadata:
+      name: redis-data
+    spec:
+      accessModes:
+      - ReadWriteOnce
+      resources:
+        requests:
+          storage: 1Gi
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: redis-cluster-init
+  namespace: task-api
+spec:
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+      - name: init
+        image: redis:7-alpine
+        env:
+        - name: REDIS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: postgres-credentials
+              key: REDIS_PASSWORD
+        command:
+        - sh
+        - -c
+        - |
+          set -e
+          nodes=""
+          for i in 0 1 2 3 4 5; do
+            host="redis-cluster-${i}.redis-cluster-headless.task-api.svc.cluster.local"
+            until redis-cli -h "$host" -a "$REDIS_PASSWORD" ping | grep -q PONG; do
+              echo "waiting for $host"
+              sleep 3
+            done
+            nodes="$nodes $host:6379"
+          done
+
+          first="redis-cluster-0.redis-cluster-headless.task-api.svc.cluster.local"
+          if redis-cli -h "$first" -a "$REDIS_PASSWORD" cluster info | grep -q "cluster_state:ok"; then
+            echo "Redis Cluster is already initialized"
+            exit 0
+          fi
+
+          echo yes | redis-cli -a "$REDIS_PASSWORD" --cluster create $nodes --cluster-replicas 1
+  backoffLimit: 6
