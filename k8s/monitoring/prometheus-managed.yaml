@@ -17,6 +17,12 @@ spec:
   serviceMonitorNamespaceSelector:
     matchLabels:
       name: monitoring
+  ruleSelector:
+    matchLabels:
+      release: prometheus
+  ruleNamespaceSelector:
+    matchLabels:
+      name: monitoring
   retention: 30d
   retentionSize: 8GB
   resources:

@@ -9,6 +9,8 @@ spec:
   partitions: 3
   replicas: 3
   config:
+    cleanup.policy: delete
+    retention.ms: 604800000
     min.insync.replicas: 2
 ---
 apiVersion: kafka.strimzi.io/v1
@@ -22,6 +24,8 @@ spec:
   partitions: 3
   replicas: 3
   config:
+    cleanup.policy: delete
+    retention.ms: 604800000
     min.insync.replicas: 2
 ---
 apiVersion: kafka.strimzi.io/v1
@@ -35,6 +39,8 @@ spec:
   partitions: 3
   replicas: 3
   config:
+    cleanup.policy: delete
+    retention.ms: 604800000
     min.insync.replicas: 2
 ---
 apiVersion: kafka.strimzi.io/v1
@@ -48,6 +54,8 @@ spec:
   partitions: 3
   replicas: 3
   config:
+    cleanup.policy: delete
+    retention.ms: 604800000
     min.insync.replicas: 2
 ---
 apiVersion: kafka.strimzi.io/v1
@@ -61,6 +69,8 @@ spec:
   partitions: 3
   replicas: 3
   config:
+    cleanup.policy: delete
+    retention.ms: 604800000
     min.insync.replicas: 2
 ---
 apiVersion: kafka.strimzi.io/v1
@@ -74,6 +84,8 @@ spec:
   partitions: 3
   replicas: 3
   config:
+    cleanup.policy: delete
+    retention.ms: 604800000
     min.insync.replicas: 2
 ---
 apiVersion: kafka.strimzi.io/v1
@@ -87,6 +99,8 @@ spec:
   partitions: 3
   replicas: 3
   config:
+    cleanup.policy: delete
+    retention.ms: 604800000
     min.insync.replicas: 2
 ---
 apiVersion: kafka.strimzi.io/v1
@@ -100,6 +114,8 @@ spec:
   partitions: 3
   replicas: 3
   config:
+    cleanup.policy: delete
+    retention.ms: 2592000000
     min.insync.replicas: 2
 ---
 apiVersion: kafka.strimzi.io/v1
@@ -113,6 +129,8 @@ spec:
   partitions: 3
   replicas: 3
   config:
+    cleanup.policy: delete
+    retention.ms: 2592000000
     min.insync.replicas: 2
 ---
 apiVersion: kafka.strimzi.io/v1
@@ -126,6 +144,8 @@ spec:
   partitions: 3
   replicas: 3
   config:
+    cleanup.policy: delete
+    retention.ms: 2592000000
     min.insync.replicas: 2
 ---
 apiVersion: kafka.strimzi.io/v1
@@ -139,6 +159,8 @@ spec:
   partitions: 3
   replicas: 3
   config:
+    cleanup.policy: delete
+    retention.ms: 2592000000
     min.insync.replicas: 2
 ---
 apiVersion: kafka.strimzi.io/v1
@@ -152,6 +174,8 @@ spec:
   partitions: 3
   replicas: 3
   config:
+    cleanup.policy: delete
+    retention.ms: 2592000000
     min.insync.replicas: 2
 ---
 apiVersion: kafka.strimzi.io/v1
@@ -165,6 +189,8 @@ spec:
   partitions: 3
   replicas: 3
   config:
+    cleanup.policy: delete
+    retention.ms: 2592000000
     min.insync.replicas: 2
 ---
 apiVersion: kafka.strimzi.io/v1
@@ -178,4 +204,6 @@ spec:
   partitions: 3
   replicas: 3
   config:
+    cleanup.policy: delete
+    retention.ms: 2592000000
     min.insync.replicas: 2

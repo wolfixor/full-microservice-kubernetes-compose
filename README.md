@@ -189,6 +189,21 @@ kubectl apply -f k8s/kafka/kafka-cluster.yaml
 kubectl apply -f k8s/kafka/topics.yaml
 ```
 
+Production operation checks:
+
+```bash
+kubectl get kafka -n kafka
+kubectl get kafkatopic -n kafka
+kubectl exec -n kafka -it platform-kafka-brokers-0 -- \
+  /opt/kafka/bin/kafka-topics.sh \
+  --bootstrap-server platform-kafka-kafka-bootstrap:9092 \
+  --describe
+kubectl exec -n kafka -it platform-kafka-brokers-0 -- \
+  /opt/kafka/bin/kafka-consumer-groups.sh \
+  --bootstrap-server platform-kafka-kafka-bootstrap:9092 \
+  --describe --all-groups
+```
+
 ### 3. CloudNativePG For Task Database
 
 ```bash
@@ -272,6 +287,7 @@ kubectl apply -f k8s/monitoring/elasticsearch-exporter.yaml
 kubectl apply -f k8s/monitoring/node-exporter.yaml
 kubectl apply -f k8s/monitoring/kube-state-metrics.yaml
 kubectl apply -f k8s/monitoring/service-monitors.yaml
+kubectl apply -f k8s/monitoring/prometheus-rules.yaml
 kubectl apply -f k8s/monitoring/prometheus-managed.yaml
 kubectl apply -f k8s/monitoring/grafana-dashboards.yaml
 kubectl apply -f k8s/monitoring/grafana-deployment.yaml
@@ -329,12 +345,15 @@ curl "http://localhost:8888/search/?q=Kafka"
 ## Useful Docs
 
 - [Kafka stack](docs/kafka-stack.md)
+- [Kafka production operation](docs/kafka-production.md)
 - [Activity service](docs/activity-service.md)
 - [Notification service](docs/notification-service.md)
 - [CloudNativePG](docs/cloudnative-pg.md)
 - [PostgreSQL cutover](docs/postgres-cutover.md)
 - [Redis Cluster](docs/redis-cluster.md)
 - [Prometheus stack](docs/prometheus-stack.md)
+- [Observability debugging](docs/observability-debugging.md)
+- [Production monitoring checklist](docs/monitoring-checklist.md)
 - [Operator and CRD](docs/operator-crd.md)
 - [Argo Rollouts](docs/argo-rollouts.md)
 - [ELK stack](docs/elk-stack.md)

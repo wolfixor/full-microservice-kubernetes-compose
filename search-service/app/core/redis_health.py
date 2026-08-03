@@ -7,6 +7,7 @@ from .redis_config import get_redis_client
 async def check_redis_health() -> dict:
     """Check Redis connection health."""
     logger = logging.getLogger(__name__)
+    redis_client = None
     
     try:
         redis_client = await get_redis_client()
@@ -25,8 +26,6 @@ async def check_redis_health() -> dict:
         logger.warning(f"Redis health check failed: {e}")
         return {"connected": False, "message": str(e)}
     finally:
-        try:
-            redis_client = await get_redis_client()
-            await redis_client.close()
-        except:
-            pass
+        if redis_client:
+            close = getattr(redis_client, "aclose", redis_client.close)
+            await close()

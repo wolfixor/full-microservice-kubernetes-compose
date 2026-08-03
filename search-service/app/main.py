@@ -13,7 +13,8 @@ from .api.api import api_router
 from .repositories.search_repository import SearchRepository
 from .core.redis_health import check_redis_health
 from .core.elasticsearch_config import close_elasticsearch_client
-from .core.kafka_event_consumer import start_kafka_event_consumer, stop_kafka_event_consumer
+from .core.kafka_event_consumer import get_kafka_consumer_health, start_kafka_event_consumer, stop_kafka_event_consumer
+from .core.metrics import SERVICE_NAME, redis_health_gauge
 
 # Setup logging
 setup_logging()
@@ -121,19 +122,32 @@ async def health_check():
 
 @app.get("/ready")
 async def readiness_check():
-    """Readiness check endpoint with Redis health check."""
+    """Readiness check endpoint with dependency health checks."""
     logger = logging.getLogger(__name__)
 
-    # Check Redis health
     redis_health = await check_redis_health()
+    kafka_health = get_kafka_consumer_health()
 
-    # Determine overall readiness
-    is_ready = redis_health.get("connected", False)
+    redis_ready = redis_health.get("connected", False)
+    kafka_ready = kafka_health.get("active", False)
+    is_ready = redis_ready and kafka_ready
 
-    logger.info(f"Search service readiness check: Redis {'healthy' if is_ready else 'unhealthy'}")
+    redis_health_gauge.labels(service=SERVICE_NAME).set(1 if redis_ready else 0)
 
-    return {
+    logger.info(
+        "Search service readiness check: Redis %s, Kafka consumer %s",
+        "healthy" if redis_ready else "unhealthy",
+        "active" if kafka_ready else "inactive",
+    )
+
+    body = {
         "status": "ready" if is_ready else "not_ready",
         "service": settings.APP_NAME,
-        "redis": redis_health
+        "redis": redis_health,
+        "kafka": kafka_health,
     }
+
+    if not is_ready:
+        return JSONResponse(status_code=503, content=body)
+
+    return body
