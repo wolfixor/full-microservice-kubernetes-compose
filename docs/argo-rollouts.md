@@ -108,16 +108,75 @@ new task-service image
 
 If error rate or latency is bad, the rollout stops.
 
-## Apply Flow
+## Exact Installation Flow
+
+### Step 1: Install the Controller
 
 ```bash
 kubectl create namespace argo-rollouts
 kubectl apply -n argo-rollouts -f https://github.com/argoproj/argo-rollouts/releases/v1.9.0/download/install.yaml
 kubectl wait deployment/argo-rollouts -n argo-rollouts --for=condition=Available --timeout=300s
+```
 
+What this does:
+
+```text
+install.yaml contains:
+  -> CRDs (Rollout, AnalysisTemplate, AnalysisRun, Experiment)
+  -> Argo Rollouts Controller Deployment in argo-rollouts namespace
+  -> RBAC (ClusterRole, ClusterRoleBinding, ServiceAccount)
+```
+
+After this step the cluster knows new kinds:
+
+```text
+Rollout
+AnalysisTemplate
+AnalysisRun
+Experiment
+```
+
+And one new pod is running:
+
+```text
+argo-rollouts namespace
+  -> argo-rollouts-xxx pod (Deployment)
+```
+
+### Step 2: Replace the Deployment with a Rollout
+
+```bash
 kubectl apply -f task-service/k8s/analysis-template.yaml
 kubectl delete deployment task-service -n task-api
 kubectl apply -f task-service/k8s/rollout.yaml
+```
+
+What this does:
+
+```text
+analysis-template.yaml contains kind: AnalysisTemplate
+  -> defines Prometheus queries for error rate and latency
+  -> not active yet, just a template
+
+delete deployment task-service
+  -> removes the old Deployment
+  -> Argo Rollouts will manage pods from now on
+
+rollout.yaml contains kind: Rollout
+  -> Argo controller sees this CR
+  -> creates ReplicaSets and Pods
+  -> follows canary steps: 10%, 25%, 50%, 100%
+  -> creates AnalysisRun at each step using the AnalysisTemplate
+```
+
+So you never manage task-service pods through a Deployment anymore.
+The Rollout CR is the new source of truth.
+
+```text
+you apply:   kind: Rollout
+controller creates: ReplicaSets
+                    Pods
+                    AnalysisRuns (at each canary step)
 ```
 
 ## Check
