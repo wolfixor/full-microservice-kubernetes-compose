@@ -6,6 +6,10 @@ __pycache__/
 # Python tooling
 .pytest_cache/
 .mypy_cache/
+prompts.md
+bugs.md
+docs/superpowers/
+plans/
 .ruff_cache/
 .coverage
 htmlcov/
