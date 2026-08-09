@@ -87,7 +87,7 @@ http://NODE_IP:30086
 
 
 kubectl apply -f k8s/monitoring/namespace.yaml
-# Follow k8s/monitoring/prometheus-operator-install.md to install pinned Prometheus Operator v0.93.0
+# Follow docs/installation/prometheus-operator-install.md to install pinned Prometheus Operator v0.93.0
 kubectl apply -f k8s/monitoring/prometheus-rbac.yaml
 kubectl apply -f k8s/monitoring/postgres-exporter.yaml
 kubectl apply -f k8s/monitoring/redis-exporter.yaml
@@ -109,6 +109,38 @@ kubectl apply -f kong-gateway/k8s/log-endpoint.yaml
 kubectl apply -f kong-gateway/k8s/configmap.yaml
 kubectl rollout restart deployment/kong-gateway -n task-api
 kubectl apply -f k8s/fluentbit/kibana-setup.yaml
+
+
+# Velero local backup stack with YAML
+# This uses MinIO as a local S3-compatible backup target.
+kubectl apply -f https://raw.githubusercontent.com/vmware-tanzu/velero/v1.18.1/config/crd/v1/bases/velero.io_backups.yaml
+kubectl apply -f https://raw.githubusercontent.com/vmware-tanzu/velero/v1.18.1/config/crd/v1/bases/velero.io_backuprepositories.yaml
+kubectl apply -f https://raw.githubusercontent.com/vmware-tanzu/velero/v1.18.1/config/crd/v1/bases/velero.io_backupstoragelocations.yaml
+kubectl apply -f https://raw.githubusercontent.com/vmware-tanzu/velero/v1.18.1/config/crd/v1/bases/velero.io_deletebackuprequests.yaml
+kubectl apply -f https://raw.githubusercontent.com/vmware-tanzu/velero/v1.18.1/config/crd/v1/bases/velero.io_downloadrequests.yaml
+kubectl apply -f https://raw.githubusercontent.com/vmware-tanzu/velero/v1.18.1/config/crd/v1/bases/velero.io_podvolumebackups.yaml
+kubectl apply -f https://raw.githubusercontent.com/vmware-tanzu/velero/v1.18.1/config/crd/v1/bases/velero.io_podvolumerestores.yaml
+kubectl apply -f https://raw.githubusercontent.com/vmware-tanzu/velero/v1.18.1/config/crd/v1/bases/velero.io_restores.yaml
+kubectl apply -f https://raw.githubusercontent.com/vmware-tanzu/velero/v1.18.1/config/crd/v1/bases/velero.io_schedules.yaml
+kubectl apply -f https://raw.githubusercontent.com/vmware-tanzu/velero/v1.18.1/config/crd/v1/bases/velero.io_serverstatusrequests.yaml
+kubectl apply -f https://raw.githubusercontent.com/vmware-tanzu/velero/v1.18.1/config/crd/v1/bases/velero.io_volumesnapshotlocations.yaml
+kubectl apply -f https://raw.githubusercontent.com/vmware-tanzu/velero/v1.18.1/config/crd/v2alpha1/bases/velero.io_datadownloads.yaml
+kubectl apply -f https://raw.githubusercontent.com/vmware-tanzu/velero/v1.18.1/config/crd/v2alpha1/bases/velero.io_datauploads.yaml
+
+kubectl apply -f k8s/velero/yaml/namespace.yaml
+kubectl apply -f k8s/velero/yaml/minio.yaml
+kubectl rollout status deployment/minio -n velero --timeout=300s
+kubectl wait --for=condition=complete job/minio-create-velero-bucket -n velero --timeout=300s
+kubectl apply -f k8s/velero/yaml/velero-server.yaml
+kubectl rollout status deployment/velero -n velero --timeout=300s
+kubectl apply -f k8s/velero/yaml/backup-storage-location.yaml
+kubectl get backupstoragelocation -n velero
+
+kubectl apply -f k8s/velero/backups/backup-task-api.yaml
+kubectl describe backups.velero.io task-api-manual -n velero
+
+kubectl apply -f k8s/velero/backups/schedule-task-api.yaml
+kubectl get schedules.velero.io -n velero
 
 
 mirros:

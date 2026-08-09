@@ -1,0 +1,11 @@
+apiVersion: velero.io/v1
+kind: Backup
+metadata:
+  name: task-api-manual
+  namespace: velero
+spec:
+  includedNamespaces:
+  - task-api
+  storageLocation: default
+  snapshotVolumes: false
+  ttl: 168h0m0s

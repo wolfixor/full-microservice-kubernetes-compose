@@ -1,0 +1,25 @@
+# Installation
+
+Read these when you want commands, tests, cleanup, migration, or restore steps.
+
+- [Argo Rollouts install](argo-rollouts-install.md)
+- [CloudNativePG install](cloudnative-pg-install.md)
+- [Cluster reload](cluster-reload.md)
+- [Cluster test](cluster-test.md)
+- [Elasticsearch install](elasticsearch-install.md)
+- [Fluent Bit ELK deploy](fluentbit-elk-deploy.md)
+- [Fluent Bit ELK flow](fluentbit-elk-flow.md)
+- [Full kubectl flow](flow-kubectl-command.md)
+- [Kafka Strimzi install](kafka-strimzi-install.md)
+- [Kafka tests](test-kafka.md)
+- [Monitoring checklist](monitoring-checklist.md)
+- [PostgreSQL cutover](postgres-cutover.md)
+- [Production checklist](production-checklist.md)
+- [Prometheus Operator install](prometheus-operator-install.md)
+- [Rook Ceph local cleanup](rook-ceph-local-cleanup.md)
+- [Rook Ceph local install](rook-ceph-local-install.md)
+- [Rook Ceph production](rook-ceph-production.md)
+- [Todo future](todo-future.md)
+- [Velero cleanup](velero-cleanup.md)
+- [Velero install](velero-install.md)
+- [Known bugs](bugs.md)

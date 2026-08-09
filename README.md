@@ -344,21 +344,31 @@ curl "http://localhost:8888/search/?q=Kafka"
 
 ## Useful Docs
 
-- [Kafka stack](docs/kafka-stack.md)
-- [Kafka production operation](docs/kafka-production.md)
-- [Activity service](docs/activity-service.md)
-- [Notification service](docs/notification-service.md)
-- [CloudNativePG](docs/cloudnative-pg.md)
-- [PostgreSQL cutover](docs/postgres-cutover.md)
-- [Redis Cluster](docs/redis-cluster.md)
-- [Prometheus stack](docs/prometheus-stack.md)
-- [Observability debugging](docs/observability-debugging.md)
-- [Production monitoring checklist](docs/monitoring-checklist.md)
-- [Operator and CRD](docs/operator-crd.md)
-- [Argo Rollouts](docs/argo-rollouts.md)
-- [ELK stack](docs/elk-stack.md)
-- [Kafka tests](docs/test-kafka.md)
-- [Production checklist](docs/production-checklist.md)
+Start here: [Project docs](docs/README.md)
+
+Concept docs explain what is happening:
+
+- [Kafka stack](docs/concepts/kafka-stack.md)
+- [Kafka production operation](docs/concepts/kafka-production.md)
+- [Activity service](docs/concepts/activity-service.md)
+- [Notification service](docs/concepts/notification-service.md)
+- [CloudNativePG](docs/concepts/cloudnative-pg.md)
+- [Redis Cluster](docs/concepts/redis-cluster.md)
+- [Prometheus stack](docs/concepts/prometheus-stack.md)
+- [Velero backup and restore](docs/concepts/velero.md)
+- [Observability debugging](docs/concepts/observability-debugging.md)
+- [Operator and CRD](docs/concepts/operator-crd.md)
+- [Ceph and Rook](docs/concepts/ceph.md)
+- [Argo Rollouts](docs/concepts/argo-rollouts.md)
+- [ELK stack](docs/concepts/elk-stack.md)
+
+Installation docs explain what to run:
+
+- [Full kubectl flow](docs/installation/flow-kubectl-command.md)
+- [PostgreSQL cutover](docs/installation/postgres-cutover.md)
+- [Kafka tests](docs/installation/test-kafka.md)
+- [Production monitoring checklist](docs/installation/monitoring-checklist.md)
+- [Production checklist](docs/installation/production-checklist.md)
 
 ## Docker Compose
 

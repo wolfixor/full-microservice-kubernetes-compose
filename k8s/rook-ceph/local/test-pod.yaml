@@ -1,0 +1,25 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: ceph-rbd-test
+  namespace: task-api
+spec:
+  restartPolicy: Never
+  containers:
+  - name: writer
+    image: busybox:1.36
+    command:
+    - sh
+    - -c
+    - |
+      set -eu
+      date > /data/ceph-test.txt
+      cat /data/ceph-test.txt
+      sleep 3600
+    volumeMounts:
+    - name: data
+      mountPath: /data
+  volumes:
+  - name: data
+    persistentVolumeClaim:
+      claimName: ceph-rbd-test-pvc

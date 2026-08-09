@@ -1,0 +1,11 @@
+apiVersion: velero.io/v1
+kind: Restore
+metadata:
+  name: task-api-restore-example
+  namespace: velero
+spec:
+  backupName: task-api-manual
+  includedNamespaces:
+  - task-api
+  namespaceMapping:
+    task-api: task-api-restore
