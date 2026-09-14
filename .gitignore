@@ -35,3 +35,6 @@ place-data/
 Thumbs.db
 .idea/
 .vscode/
+interview-gitops-mini-project
+.tmp/
+gnaf/
