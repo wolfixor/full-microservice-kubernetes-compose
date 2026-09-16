@@ -1,0 +1,19 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: platform-networking
+  namespace: argocd
+  labels:
+    app.kubernetes.io/part-of: task-api-platform
+spec:
+  project: task-api-platform
+  source:
+    repoURL: https://github.com/wolfixor/full-microservice-kubernetes-compose.git
+    targetRevision: main
+    path: k8s/network-policies
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: task-api
+  syncPolicy:
+    syncOptions:
+    - CreateNamespace=true

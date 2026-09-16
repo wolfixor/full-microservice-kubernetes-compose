@@ -13,6 +13,16 @@ kubectl apply
   -> kubelet runs pods on nodes
 ```
 
+GitOps adds one step before `kubectl apply`:
+
+```text
+Git commit
+  -> Argo CD detects drift
+  -> Argo CD applies manifests
+  -> API Server stores objects
+  -> controllers/operators reconcile
+```
+
 ## Admission Step
 
 ```text
@@ -149,4 +159,3 @@ kubectl run netpol-db-test -n task-api --rm -i --restart=Never \
   --labels=app=task-service \
   --command -- sh -c "nc -zvw 5 task-db-pooler-rw 5432"
 ```
-

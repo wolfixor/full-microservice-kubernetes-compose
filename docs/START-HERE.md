@@ -19,6 +19,7 @@ Use this page when you forgot the project or something is broken.
 - [Redis](commands/redis.md): cluster health, cache failures, key checks.
 - [Elasticsearch](commands/elasticsearch.md): ES pending, Kibana/search down.
 - [Kibana](concepts/kibana.md): Kibana token, encryption keys, readiness flow.
+- [Argo CD](commands/argocd.md): GitOps install, sync, health, drift, rollback.
 - [Kubernetes](commands/kubernetes.md): pods pending, crashloop, services, events.
 - [Network Policy](commands/network-policy.md): CNI checks, allowed/blocked traffic, rollback.
 - [Alertmanager](commands/alertmanager.md): alert checks, runbooks, silences, drills.
@@ -32,4 +33,14 @@ Use this page when you forgot the project or something is broken.
 ```text
 Concepts  -> understand the system
 Commands  -> run/check/debug/config
+```
+
+## GitOps Direction
+
+```text
+Git commit
+  -> Argo CD sees desired state
+  -> Argo CD syncs Kubernetes manifests
+  -> operators reconcile CRDs
+  -> Argo Rollouts handles progressive app release
 ```

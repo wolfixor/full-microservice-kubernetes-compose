@@ -1,0 +1,24 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-app-workloads
+  namespace: task-api
+spec:
+  podSelector:
+    matchExpressions:
+    - key: app
+      operator: In
+      values:
+      - user-service
+      - task-service
+      - comment-service
+      - search-service
+      - activity-service
+      - notification-service
+      - kong-gateway
+      - fluentbit
+      - kibana
+      - pgadmin
+  policyTypes:
+  - Ingress
+  - Egress

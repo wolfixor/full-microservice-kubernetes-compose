@@ -25,6 +25,10 @@ notification-service
 ## Deploy Style
 
 ```text
+platform manifests
+  -> Argo CD Applications
+  -> manual sync for now
+
 task-service
   -> Argo Rollout
   -> canary steps
@@ -32,6 +36,38 @@ task-service
 
 most other services
   -> Deployment
+```
+
+Current Argo CD layout:
+
+```text
+k8s/argocd/projects/task-api-platform.yaml
+  -> AppProject
+  -> allowed repo, cluster, namespaces, resource kinds
+
+k8s/argocd/applications/platform-root.yaml
+  -> syncs k8s root manifests
+
+k8s/argocd/applications/platform-rbac.yaml
+  -> syncs k8s/rbac
+
+k8s/argocd/applications/platform-networking.yaml
+  -> syncs k8s/network-policies
+
+k8s/argocd/applications/platform-observability.yaml
+  -> syncs k8s/monitoring
+
+k8s/argocd/applications/platform-messaging.yaml
+  -> syncs k8s/kafka
+```
+
+GitOps flow:
+
+```text
+Git repo
+  -> Argo CD Application
+  -> Kubernetes API
+  -> normal controllers/operators reconcile
 ```
 
 ## Security
@@ -129,10 +165,9 @@ raw YAML
   -> good for learning/debugging
 
 production direction
-  -> Helm/Kustomize
   -> GitOps with Argo CD
+  -> Helm/Kustomize
   -> operators for stateful systems
   -> tested backup/restore
   -> no downtime by default
 ```
-

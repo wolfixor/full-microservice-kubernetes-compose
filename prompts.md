@@ -1029,6 +1029,13 @@ Explain:
 
 Introduce Argo CD and prepare for full CI/CD.
 
+Status:
+
+- foundation added with Argo CD namespace, AppProject, and manual-sync Applications
+- concept and command docs exist
+- current Applications are intentionally conservative while the repo is still being cleaned
+- production follow-up: convert raw folders into Helm/Kustomize overlays and use app-of-apps/ApplicationSets
+
 Important:
 
 - full CI/CD is part of the target platform
