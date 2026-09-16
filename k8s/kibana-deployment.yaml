@@ -24,10 +24,26 @@ spec:
         env:
         - name: ELASTICSEARCH_HOSTS
           value: "http://elasticsearch-es-http:9200"
-        # - name: ELASTICSEARCH_USERNAME
-        #   value: "elastic"
-        # - name: ELASTICSEARCH_PASSWORD
-        #   value: "6Ta3x9lqaa03avP9B7k515ru"
+        - name: ELASTICSEARCH_SERVICEACCOUNTTOKEN
+          valueFrom:
+            secretKeyRef:
+              name: kibana-service-token
+              key: token
+        - name: XPACK_SECURITY_ENCRYPTIONKEY
+          valueFrom:
+            secretKeyRef:
+              name: kibana-encryption-keys
+              key: securityEncryptionKey
+        - name: XPACK_ENCRYPTEDSAVEDOBJECTS_ENCRYPTIONKEY
+          valueFrom:
+            secretKeyRef:
+              name: kibana-encryption-keys
+              key: savedObjectsEncryptionKey
+        - name: XPACK_REPORTING_ENCRYPTIONKEY
+          valueFrom:
+            secretKeyRef:
+              name: kibana-encryption-keys
+              key: reportingEncryptionKey
         resources:
           requests:
             memory: "500Mi"
