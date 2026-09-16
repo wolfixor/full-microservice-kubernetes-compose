@@ -1031,7 +1031,7 @@ Introduce Argo CD and prepare for full CI/CD.
 
 Status:
 
-- foundation added with Argo CD namespace, AppProject, and manual-sync Applications
+- foundation added with Argo CD namespace, AppProject, and conservative autosync Applications
 - concept and command docs exist
 - current Applications are intentionally conservative while the repo is still being cleaned
 - production follow-up: convert raw folders into Helm/Kustomize overlays and use app-of-apps/ApplicationSets
@@ -1288,6 +1288,8 @@ Current state:
 - environment differences are manual
 - platform installation still depends on many kubectl apply commands
 - raw YAML helped us learn the components, but it is not the final production workflow
+- first safe slice started: production IaC docs and target folders added
+- first low-risk component started: RBAC converted to `k8s/platform/rbac/base` Kustomize path
 
 Goal:
 

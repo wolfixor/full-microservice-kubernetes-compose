@@ -1,0 +1,73 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: task-api-developer
+  namespace: task-api
+  labels:
+    app.kubernetes.io/part-of: task-api
+rules:
+- apiGroups: [""]
+  resources: ["pods", "pods/log", "services", "endpoints", "configmaps", "events"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["apps"]
+  resources: ["deployments", "replicasets", "statefulsets"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["argoproj.io"]
+  resources: ["rollouts"]
+  verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: task-api-developers
+  namespace: task-api
+  labels:
+    app.kubernetes.io/part-of: task-api
+subjects:
+- kind: Group
+  name: platform-developers
+  apiGroup: rbac.authorization.k8s.io
+roleRef:
+  kind: Role
+  name: task-api-developer
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: task-api-operator
+  namespace: task-api
+  labels:
+    app.kubernetes.io/part-of: task-api
+rules:
+- apiGroups: [""]
+  resources: ["pods", "pods/log", "services", "endpoints", "configmaps", "events"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: [""]
+  resources: ["pods/exec"]
+  verbs: ["create"]
+- apiGroups: ["apps"]
+  resources: ["deployments", "replicasets", "statefulsets"]
+  verbs: ["get", "list", "watch", "patch"]
+- apiGroups: ["argoproj.io"]
+  resources: ["rollouts"]
+  verbs: ["get", "list", "watch", "patch"]
+- apiGroups: ["batch"]
+  resources: ["jobs", "cronjobs"]
+  verbs: ["get", "list", "watch", "create", "delete"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: task-api-operators
+  namespace: task-api
+  labels:
+    app.kubernetes.io/part-of: task-api
+subjects:
+- kind: Group
+  name: platform-operators
+  apiGroup: rbac.authorization.k8s.io
+roleRef:
+  kind: Role
+  name: task-api-operator
+  apiGroup: rbac.authorization.k8s.io
