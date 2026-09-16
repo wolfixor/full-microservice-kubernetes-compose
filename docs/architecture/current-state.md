@@ -27,7 +27,9 @@ notification-service
 ```text
 platform manifests
   -> Argo CD Applications
-  -> manual sync for now
+  -> conservative autosync
+  -> selfHeal enabled
+  -> prune disabled for now
 
 task-service
   -> Argo Rollout
@@ -59,6 +61,9 @@ k8s/argocd/applications/platform-observability.yaml
 
 k8s/argocd/applications/platform-messaging.yaml
   -> syncs k8s/kafka
+
+k8s/argocd/applications/platform-secrets.yaml
+  -> syncs k8s/external-secrets
 ```
 
 GitOps flow:
@@ -100,6 +105,18 @@ Vault secret/task-service/redis
        task-service-db-from-vault
        task-service-redis-from-vault
   -> task-service env vars
+```
+
+Current Kibana secret flow:
+
+```text
+Vault secret/kibana/encryption-keys
+  -> ExternalSecret
+  -> Kubernetes Secret kibana-encryption-keys
+  -> Kibana encryption env vars
+
+Kubernetes Secret kibana-service-token
+  -> Kibana authenticates to Elasticsearch
 ```
 
 ## Data And Messaging
