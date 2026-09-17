@@ -10,10 +10,7 @@ spec:
   source:
     repoURL: https://github.com/wolfixor/full-microservice-kubernetes-compose.git
     targetRevision: main
-    path: k8s
-    directory:
-      recurse: false
-      exclude: '{init-container-example.yaml,elasticsearch-deployment.yaml}'
+    path: k8s/argocd
   destination:
     server: https://kubernetes.default.svc
     namespace: task-api

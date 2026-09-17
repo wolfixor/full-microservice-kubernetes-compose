@@ -15,14 +15,23 @@ Server-side apply avoids the large CRD annotation error:
 metadata.annotations: Too long
 ```
 
-Then add this repo to Argo CD:
+Bootstrap the project and child Applications once:
 
 ```bash
 kubectl apply -f k8s/argocd/projects/task-api-platform.yaml
-kubectl apply -f k8s/argocd/applications/
+kubectl apply -f k8s/argocd/applications/platform-root.yaml
 ```
 
-These Applications use manual sync for now.
+After that, `platform-root` renders `k8s/argocd/kustomization.yaml` and owns
+the AppProject plus all child Applications. Child Applications own workloads;
+the root Application does not deploy workloads directly.
+
+These Applications use conservative autosync:
+
+```text
+selfHeal: true
+prune: false
+```
 
 Full command doc:
 

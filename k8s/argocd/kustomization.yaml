@@ -1,0 +1,14 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+- projects/task-api-platform.yaml
+- applications/platform-cache.yaml
+- applications/platform-data.yaml
+- applications/platform-logging.yaml
+- applications/platform-messaging.yaml
+- applications/platform-networking.yaml
+- applications/platform-observability.yaml
+- applications/platform-policy.yaml
+- applications/platform-rbac.yaml
+- applications/platform-secrets.yaml
+- applications/platform-workloads.yaml
