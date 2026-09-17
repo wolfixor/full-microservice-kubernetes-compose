@@ -92,13 +92,30 @@ spec:
           fi
 
           POD_FQDN="$(hostname).redis-cluster-headless.task-api.svc.cluster.local"
-          exec redis-server /usr/local/etc/redis/redis.conf \
+          redis-server /usr/local/etc/redis/redis.conf \
             --requirepass "$REDIS_PASSWORD" \
             --masterauth "$REDIS_PASSWORD" \
             --cluster-announce-ip "$POD_IP" \
             --cluster-announce-hostname "$POD_FQDN" \
             --cluster-announce-port 6379 \
-            --cluster-announce-bus-port 16379
+            --cluster-announce-bus-port 16379 &
+          redis_pid=$!
+          trap 'kill -TERM "$redis_pid"; wait "$redis_pid"' TERM INT
+
+          until REDISCLI_AUTH="$REDIS_PASSWORD" redis-cli ping | grep -q PONG; do
+            sleep 1
+          done
+
+          # Re-introduce stable StatefulSet members after local pod IP changes.
+          for i in 0 1 2 3 4 5; do
+            host="redis-cluster-${i}.redis-cluster-headless.task-api.svc.cluster.local"
+            node_ip="$(getent hosts "$host" | awk '{print $1}' | head -n 1)"
+            if [ -n "$node_ip" ]; then
+              REDISCLI_AUTH="$REDIS_PASSWORD" redis-cli cluster meet "$node_ip" 6379 >/dev/null 2>&1 || true
+            fi
+          done
+
+          wait "$redis_pid"
         env:
         - name: POD_IP
           valueFrom:
