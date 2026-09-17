@@ -43,6 +43,10 @@ releases:
   version: {{ .Values.versions.argocd | quote }}
   values:
   - values/argocd.yaml
+  - server:
+      replicas: {{ .Values.operators.argocdServerReplicas }}
+    repoServer:
+      replicas: {{ .Values.operators.argocdRepoServerReplicas }}
 
 - name: argo-rollouts
   namespace: argo-rollouts
@@ -50,6 +54,9 @@ releases:
   installed: {{ .Values.operators.enabled }}
   chart: argo/argo-rollouts
   version: {{ .Values.versions.argoRollouts | quote }}
+  values:
+  - controller:
+      replicas: {{ .Values.operators.argoRolloutsReplicas }}
 
 - name: cloudnative-pg
   namespace: cnpg-system
@@ -73,6 +80,11 @@ releases:
   version: {{ .Values.versions.externalSecrets | quote }}
   values:
   - values/external-secrets.yaml
+  - replicaCount: {{ .Values.operators.externalSecretsReplicas }}
+    webhook:
+      replicaCount: {{ .Values.operators.externalSecretsReplicas }}
+    certController:
+      replicaCount: {{ .Values.operators.externalSecretsReplicas }}
 
 - name: kyverno
   namespace: kyverno
@@ -82,6 +94,14 @@ releases:
   version: {{ .Values.versions.kyverno | quote }}
   values:
   - values/kyverno.yaml
+  - admissionController:
+      replicas: {{ .Values.operators.kyvernoAdmissionReplicas }}
+    backgroundController:
+      replicas: {{ .Values.operators.kyvernoBackgroundReplicas }}
+    cleanupController:
+      replicas: {{ .Values.operators.kyvernoCleanupReplicas }}
+    reportsController:
+      replicas: {{ .Values.operators.kyvernoReportsReplicas }}
 
 - name: trivy-operator
   namespace: trivy-system
@@ -89,6 +109,9 @@ releases:
   installed: {{ .Values.operators.enabled }}
   chart: aqua/trivy-operator
   version: {{ .Values.versions.trivyOperator | quote }}
+  values:
+  - operator:
+      scanJobsConcurrentLimit: {{ .Values.operators.trivyScanJobsConcurrentLimit }}
 
 - name: kube-prometheus-stack
   namespace: monitoring

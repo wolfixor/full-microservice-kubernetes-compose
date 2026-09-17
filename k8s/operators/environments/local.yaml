@@ -1,4 +1,11 @@
-# The local cluster already has manually installed operators. Keep this false
-# until each release is deliberately adopted or the cluster is rebuilt.
 operators:
-  enabled: false
+  enabled: true
+  argocdServerReplicas: 1
+  argocdRepoServerReplicas: 1
+  argoRolloutsReplicas: 1
+  externalSecretsReplicas: 1
+  kyvernoAdmissionReplicas: 1
+  kyvernoBackgroundReplicas: 1
+  kyvernoCleanupReplicas: 1
+  kyvernoReportsReplicas: 1
+  trivyScanJobsConcurrentLimit: 1

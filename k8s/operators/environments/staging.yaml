@@ -1,2 +1,11 @@
 operators:
   enabled: true
+  argocdServerReplicas: 2
+  argocdRepoServerReplicas: 2
+  argoRolloutsReplicas: 2
+  externalSecretsReplicas: 2
+  kyvernoAdmissionReplicas: 2
+  kyvernoBackgroundReplicas: 2
+  kyvernoCleanupReplicas: 1
+  kyvernoReportsReplicas: 1
+  trivyScanJobsConcurrentLimit: 5
