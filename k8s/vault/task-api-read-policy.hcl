@@ -13,3 +13,15 @@ path "secret/data/task-service/redis" {
 path "secret/data/kibana/encryption-keys" {
   capabilities = ["read"]
 }
+
+path "secret/data/platform/shared" {
+  capabilities = ["read"]
+}
+
+path "secret/data/pgadmin/config" {
+  capabilities = ["read"]
+}
+
+path "secret/data/task-db/backup" {
+  capabilities = ["read"]
+}
