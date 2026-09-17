@@ -7,6 +7,7 @@ operators:
   kyvernoAdmissionReplicas: 1
   kyvernoBackgroundReplicas: 1
   kyvernoCleanupReplicas: 1
+  kyvernoReportsEnabled: false
   kyvernoReportsReplicas: 1
   kyvernoForceFailurePolicyIgnore: true
   trivyScanJobsConcurrentLimit: 1

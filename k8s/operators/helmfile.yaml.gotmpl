@@ -101,6 +101,7 @@ releases:
     cleanupController:
       replicas: {{ .Values.operators.kyvernoCleanupReplicas }}
     reportsController:
+      enabled: {{ .Values.operators.kyvernoReportsEnabled }}
       replicas: {{ .Values.operators.kyvernoReportsReplicas }}
     features:
       forceFailurePolicyIgnore:

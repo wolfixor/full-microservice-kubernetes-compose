@@ -18,6 +18,10 @@ single admission replica. Staging and production remain fail closed and use
 multiple replicas. This prevents a local controller restart from deadlocking
 all Kubernetes writes without weakening production admission control.
 
+The local profile also disables Kyverno's reports controller to reduce API
+watch pressure. Admission policies still run; staging and production keep
+policy reporting enabled.
+
 ```bash
 helmfile -f k8s/operators/helmfile.yaml.gotmpl -e local list
 helmfile -f k8s/operators/helmfile.yaml.gotmpl -e local template
