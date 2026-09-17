@@ -13,14 +13,9 @@ Pinned releases live in `helmfile.yaml.gotmpl`. Environment sizing lives in
 `environments/`. Use `local` for Docker Desktop and `prod` only on a cluster
 with production capacity.
 
-The local and dev profiles make Kyverno admission fail open because they run a
-single admission replica. Staging and production remain fail closed and use
-multiple replicas. This prevents a local controller restart from deadlocking
-all Kubernetes writes without weakening production admission control.
-
-The local profile also disables Kyverno's reports controller to reduce API
-watch pressure. Admission policies still run; staging and production keep
-policy reporting enabled.
+Every environment keeps Kyverno admission fail closed. Local and dev run two
+admission replicas; staging and production use larger replica counts. Policy
+reporting remains enabled in every environment.
 
 ```bash
 helmfile -f k8s/operators/helmfile.yaml.gotmpl -e local list

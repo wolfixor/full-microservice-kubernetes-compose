@@ -4,10 +4,10 @@ operators:
   argocdRepoServerReplicas: 1
   argoRolloutsReplicas: 1
   externalSecretsReplicas: 1
-  kyvernoAdmissionReplicas: 1
+  kyvernoAdmissionReplicas: 2
   kyvernoBackgroundReplicas: 1
   kyvernoCleanupReplicas: 1
   kyvernoReportsEnabled: true
   kyvernoReportsReplicas: 1
-  kyvernoForceFailurePolicyIgnore: true
+  kyvernoForceFailurePolicyIgnore: false
   trivyScanJobsConcurrentLimit: 2
