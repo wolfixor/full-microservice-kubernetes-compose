@@ -15,6 +15,8 @@ spec:
       labels:
         app: task-service
     spec:
+      serviceAccountName: task-api-workload
+      automountServiceAccountToken: false
       containers:
       - name: task-service
         image: registry.gitlab.shiveh.com/mapir/upstream/kibana:task-service
@@ -31,12 +33,12 @@ spec:
         - name: POSTGRES_USER
           valueFrom:
             secretKeyRef:
-              name: task-db-app
+              name: task-service-db-from-vault
               key: username
         - name: POSTGRES_PASSWORD
           valueFrom:
             secretKeyRef:
-              name: task-db-app
+              name: task-service-db-from-vault
               key: password
         - name: REDIS_HOST
           value: "redis-cluster"
@@ -49,7 +51,7 @@ spec:
         - name: REDIS_PASSWORD
           valueFrom:
             secretKeyRef:
-              name: postgres-credentials
+              name: task-service-redis-from-vault
               key: REDIS_PASSWORD
         - name: REDIS_KEY_PREFIX
           value: "task"

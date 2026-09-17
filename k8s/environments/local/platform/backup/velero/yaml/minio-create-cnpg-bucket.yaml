@@ -1,0 +1,32 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: minio-create-cnpg-bucket
+  namespace: velero
+spec:
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+      - name: mc
+        image: quay.io/minio/mc:RELEASE.2025-07-21T05-28-08Z
+        env:
+        - name: MINIO_ROOT_USER
+          valueFrom:
+            secretKeyRef:
+              name: minio-credentials
+              key: root-user
+        - name: MINIO_ROOT_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: minio-credentials
+              key: root-password
+        command:
+        - sh
+        - -c
+        - |
+          set -eu
+          until mc alias set local http://minio.velero.svc.cluster.local:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD"; do
+            sleep 5
+          done
+          mc mb --ignore-existing local/cnpg

@@ -1,0 +1,10 @@
+versions:
+  argocd: 10.9.2
+  argoRollouts: 2.43.2
+  cloudnativePg: 0.29.0
+  eck: 3.1.0
+  externalSecrets: 2.10.0
+  kyverno: 3.9.1
+  trivyOperator: 0.36.0
+  kubePrometheusStack: 91.4.1
+  strimzi: 1.2.0

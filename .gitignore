@@ -37,4 +37,6 @@ Thumbs.db
 .vscode/
 interview-gitops-mini-project
 .tmp/
+.helm/
+credentials-velero.local
 gnaf/

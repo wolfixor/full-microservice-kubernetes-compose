@@ -1,0 +1,6 @@
+{
+  "data": {
+    "policies.bundle.oci.ref": "ghcr.io/aquasecurity/trivy-checks:1",
+    "scanJob.useGCRServiceAccount": "false"
+  }
+}

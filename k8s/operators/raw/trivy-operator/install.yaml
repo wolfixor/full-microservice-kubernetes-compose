@@ -1,0 +1,9 @@
+# Local-friendly install entrypoint.
+#
+# Apply the official Trivy Operator manifest after the namespace exists:
+#
+# kubectl apply -f k8s/operators/raw/trivy-operator/namespace.yaml
+# kubectl apply -f https://raw.githubusercontent.com/aquasecurity/trivy-operator/main/deploy/static/trivy-operator.yaml
+#
+# Keep the downloaded/operator-managed manifest out of this repo unless we pin
+# a specific version for production GitOps.

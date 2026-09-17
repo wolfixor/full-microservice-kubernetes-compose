@@ -1,0 +1,109 @@
+environments:
+  local:
+    values:
+    - environments/versions.yaml
+    - environments/local.yaml
+  dev:
+    values:
+    - environments/versions.yaml
+    - environments/dev.yaml
+  staging:
+    values:
+    - environments/versions.yaml
+    - environments/staging.yaml
+  prod:
+    values:
+    - environments/versions.yaml
+    - environments/prod.yaml
+
+---
+
+repositories:
+- name: argo
+  url: https://argoproj.github.io/argo-helm
+- name: cnpg
+  url: https://cloudnative-pg.github.io/charts
+- name: elastic
+  url: https://helm.elastic.co
+- name: external-secrets
+  url: https://charts.external-secrets.io
+- name: kyverno
+  url: https://kyverno.github.io/kyverno
+- name: aqua
+  url: https://aquasecurity.github.io/helm-charts
+- name: prometheus-community
+  url: https://prometheus-community.github.io/helm-charts
+
+releases:
+- name: argocd
+  namespace: argocd
+  createNamespace: true
+  installed: {{ .Values.operators.enabled }}
+  chart: argo/argo-cd
+  version: {{ .Values.versions.argocd | quote }}
+  values:
+  - values/argocd.yaml
+
+- name: argo-rollouts
+  namespace: argo-rollouts
+  createNamespace: true
+  installed: {{ .Values.operators.enabled }}
+  chart: argo/argo-rollouts
+  version: {{ .Values.versions.argoRollouts | quote }}
+
+- name: cloudnative-pg
+  namespace: cnpg-system
+  createNamespace: true
+  installed: {{ .Values.operators.enabled }}
+  chart: cnpg/cloudnative-pg
+  version: {{ .Values.versions.cloudnativePg | quote }}
+
+- name: eck-operator
+  namespace: elastic-system
+  createNamespace: true
+  installed: {{ .Values.operators.enabled }}
+  chart: elastic/eck-operator
+  version: {{ .Values.versions.eck | quote }}
+
+- name: external-secrets
+  namespace: external-secrets
+  createNamespace: true
+  installed: {{ .Values.operators.enabled }}
+  chart: external-secrets/external-secrets
+  version: {{ .Values.versions.externalSecrets | quote }}
+  values:
+  - values/external-secrets.yaml
+
+- name: kyverno
+  namespace: kyverno
+  createNamespace: true
+  installed: {{ .Values.operators.enabled }}
+  chart: kyverno/kyverno
+  version: {{ .Values.versions.kyverno | quote }}
+  values:
+  - values/kyverno.yaml
+
+- name: trivy-operator
+  namespace: trivy-system
+  createNamespace: true
+  installed: {{ .Values.operators.enabled }}
+  chart: aqua/trivy-operator
+  version: {{ .Values.versions.trivyOperator | quote }}
+
+- name: kube-prometheus-stack
+  namespace: monitoring
+  createNamespace: true
+  installed: {{ .Values.operators.enabled }}
+  chart: prometheus-community/kube-prometheus-stack
+  version: {{ .Values.versions.kubePrometheusStack | quote }}
+  values:
+  - values/kube-prometheus-stack.yaml
+
+- name: strimzi-cluster-operator
+  namespace: kafka
+  createNamespace: true
+  installed: {{ .Values.operators.enabled }}
+  chart: oci://quay.io/strimzi-helm/strimzi-kafka-operator
+  version: {{ .Values.versions.strimzi | quote }}
+  values:
+  - values/strimzi.yaml

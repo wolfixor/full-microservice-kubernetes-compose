@@ -1,0 +1,6 @@
+# Local-friendly install entrypoint.
+#
+# kubectl apply -f k8s/operators/raw/kyverno/namespace.yaml
+# kubectl apply -f https://github.com/kyverno/kyverno/releases/latest/download/install.yaml
+#
+# Production should pin a specific Kyverno version and install through Helm/GitOps.

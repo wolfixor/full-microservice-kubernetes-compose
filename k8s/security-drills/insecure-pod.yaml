@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: trivy-config-audit-drill
+  namespace: task-api
+  labels:
+    app: trivy-config-audit-drill
+spec:
+  containers:
+  - name: nginx
+    image: nginx:1.25
+    securityContext:
+      privileged: true
+    resources: {}

@@ -1,0 +1,4 @@
+# The local cluster already has manually installed operators. Keep this false
+# until each release is deliberately adopted or the cluster is rebuilt.
+operators:
+  enabled: false

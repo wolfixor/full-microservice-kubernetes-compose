@@ -23,5 +23,6 @@ small blast radius
 easy to verify with kubectl auth can-i
 ```
 
-The old raw manifests in `k8s/rbac` are kept temporarily as legacy learning files.
+This is the single managed RBAC source. Security drills live under
+`k8s/security-drills` and are never part of Argo CD autosync.
 Do not edit both paths long term. The production path is `k8s/platform/rbac/base`.

@@ -1,0 +1,9 @@
+configs:
+  params:
+    server.insecure: true
+controller:
+  replicas: 1
+server:
+  replicas: 2
+repoServer:
+  replicas: 2

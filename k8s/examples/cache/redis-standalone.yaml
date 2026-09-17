@@ -9,7 +9,6 @@ data:
     port 6379
     bind 0.0.0.0
     protected-mode no
-    requirepass supersecure
     appendonly yes
     appendfilename "appendonly.aof"
     appendfsync everysec
@@ -58,7 +57,16 @@ spec:
       containers:
       - name: redis
         image: redis:7-alpine
-        command: ["redis-server", "/usr/local/etc/redis/redis.conf"]
+        command:
+        - sh
+        - -c
+        - exec redis-server /usr/local/etc/redis/redis.conf --requirepass "$REDIS_PASSWORD"
+        env:
+        - name: REDIS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: postgres-credentials
+              key: REDIS_PASSWORD
         ports:
         - containerPort: 6379
         resources:
