@@ -62,6 +62,12 @@ spec:
       podSelector:
         matchLabels:
           app: elasticsearch-exporter
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: elastic-system
+      podSelector:
+        matchLabels:
+          control-plane: elastic-operator
     ports:
     - protocol: TCP
       port: 9200
