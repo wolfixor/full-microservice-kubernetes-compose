@@ -13,26 +13,32 @@ spec:
       expr: search_service_redis_healthy{service="search-service"} == 0
       for: 2m
       labels:
-        severity: warning
+        severity: ticket
+        owner: platform
         service: search-service
       annotations:
         summary: "search-service Redis health check is failing"
         description: "search-service has reported Redis unhealthy for more than 2 minutes."
+        runbook_url: "docs/commands/alertmanager.md#searchserviceredisunhealthy"
     - alert: SearchServiceKafkaConsumerDown
       expr: search_service_kafka_consumer_active{service="search-service",group_id="search-service"} == 0
       for: 2m
       labels:
-        severity: critical
+        severity: page
+        owner: platform
         service: search-service
       annotations:
         summary: "search-service Kafka consumer is inactive"
         description: "search-service is not actively consuming Kafka events, so search indexing may lag."
+        runbook_url: "docs/commands/alertmanager.md#searchservicekafkaconsumerdown"
     - alert: SearchServiceKafkaEventProcessingFailures
       expr: increase(search_service_kafka_events_failed_total{service="search-service"}[5m]) > 0
       for: 1m
       labels:
-        severity: warning
+        severity: ticket
+        owner: platform
         service: search-service
       annotations:
         summary: "search-service failed to process Kafka events"
         description: "search-service has Kafka event processing failures in the last 5 minutes."
+        runbook_url: "docs/commands/alertmanager.md#searchservicekafkaeventprocessingfailures"

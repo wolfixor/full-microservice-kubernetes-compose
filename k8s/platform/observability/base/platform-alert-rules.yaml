@@ -1,0 +1,129 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: platform-production-alerts
+  namespace: monitoring
+  labels:
+    release: prometheus
+spec:
+  groups:
+  - name: platform-service-availability
+    rules:
+    - alert: ServiceTargetDown
+      expr: up{namespace=~"task-api|monitoring"} == 0
+      for: 2m
+      labels:
+        severity: page
+        owner: platform
+      annotations:
+        summary: "Prometheus target is down"
+        description: "{{ $labels.job }} / {{ $labels.instance }} has been unreachable for more than 2 minutes."
+        runbook_url: "docs/commands/alertmanager.md#servicetargetdown"
+    - alert: KubernetesDeploymentReplicasUnavailable
+      expr: kube_deployment_status_replicas_available{namespace="task-api"} < kube_deployment_spec_replicas{namespace="task-api"}
+      for: 5m
+      labels:
+        severity: ticket
+        owner: platform
+      annotations:
+        summary: "Deployment has unavailable replicas"
+        description: "{{ $labels.deployment }} in {{ $labels.namespace }} has fewer available replicas than desired."
+        runbook_url: "docs/commands/alertmanager.md#kubernetesdeploymentreplicasunavailable"
+    - alert: KubernetesStatefulSetReplicasUnavailable
+      expr: kube_statefulset_status_replicas_ready{namespace="task-api"} < kube_statefulset_replicas{namespace="task-api"}
+      for: 5m
+      labels:
+        severity: ticket
+        owner: platform
+      annotations:
+        summary: "StatefulSet has unavailable replicas"
+        description: "{{ $labels.statefulset }} in {{ $labels.namespace }} has fewer ready replicas than desired."
+        runbook_url: "docs/commands/alertmanager.md#kubernetesstatefulsetreplicasunavailable"
+  - name: platform-storage
+    rules:
+    - alert: PersistentVolumeClaimPending
+      expr: kube_persistentvolumeclaim_status_phase{namespace="task-api",phase="Pending"} == 1
+      for: 5m
+      labels:
+        severity: page
+        owner: platform
+      annotations:
+        summary: "PVC is pending"
+        description: "PVC {{ $labels.persistentvolumeclaim }} in {{ $labels.namespace }} is Pending."
+        runbook_url: "docs/commands/alertmanager.md#persistentvolumeclaimpending"
+    - alert: PersistentVolumeClaimPressure
+      expr: kubelet_volume_stats_available_bytes{namespace="task-api"} / kubelet_volume_stats_capacity_bytes{namespace="task-api"} < 0.15
+      for: 10m
+      labels:
+        severity: page
+        owner: platform
+      annotations:
+        summary: "PVC free space is low"
+        description: "PVC {{ $labels.persistentvolumeclaim }} in {{ $labels.namespace }} has less than 15% free space."
+        runbook_url: "docs/commands/alertmanager.md#persistentvolumeclaimpressure"
+  - name: platform-postgresql
+    rules:
+    - alert: PostgresExporterDown
+      expr: up{namespace="monitoring",service="postgres-exporter"} == 0
+      for: 2m
+      labels:
+        severity: ticket
+        owner: database
+      annotations:
+        summary: "Postgres exporter is down"
+        description: "Prometheus cannot scrape postgres-exporter."
+        runbook_url: "docs/commands/alertmanager.md#postgresexporterdown"
+    - alert: PostgresReplicationLagHigh
+      expr: pg_replication_lag_seconds > 30
+      for: 5m
+      labels:
+        severity: page
+        owner: database
+      annotations:
+        summary: "PostgreSQL replication lag is high"
+        description: "Replication lag on {{ $labels.instance }} is above 30 seconds."
+        runbook_url: "docs/commands/alertmanager.md#postgresreplicationlaghigh"
+  - name: platform-redis
+    rules:
+    - alert: RedisExporterDown
+      expr: up{namespace="monitoring",service="redis-exporter"} == 0
+      for: 2m
+      labels:
+        severity: ticket
+        owner: platform
+      annotations:
+        summary: "Redis exporter is down"
+        description: "Prometheus cannot scrape redis-exporter."
+        runbook_url: "docs/commands/alertmanager.md#redisexporterdown"
+    - alert: RedisMemoryPressure
+      expr: redis_memory_used_bytes / redis_memory_max_bytes > 0.85
+      for: 5m
+      labels:
+        severity: ticket
+        owner: platform
+      annotations:
+        summary: "Redis memory usage is high"
+        description: "Redis memory usage is above 85% on {{ $labels.instance }}."
+        runbook_url: "docs/commands/alertmanager.md#redismemorypressure"
+  - name: platform-http
+    rules:
+    - alert: HighHttp5xxRate
+      expr: sum by (service) (rate(http_requests_total{status=~"5.."}[5m])) > 0.5
+      for: 5m
+      labels:
+        severity: page
+        owner: platform
+      annotations:
+        summary: "High HTTP 5xx rate"
+        description: "{{ $labels.service }} is returning more than 0.5 5xx responses per second."
+        runbook_url: "docs/commands/alertmanager.md#highhttp5xxrate"
+    - alert: HighHttpLatencyP95
+      expr: histogram_quantile(0.95, sum by (le, service) (rate(http_request_duration_seconds_bucket[5m]))) > 1
+      for: 5m
+      labels:
+        severity: ticket
+        owner: platform
+      annotations:
+        summary: "High HTTP p95 latency"
+        description: "{{ $labels.service }} p95 latency is above 1 second."
+        runbook_url: "docs/commands/alertmanager.md#highhttplatencyp95"

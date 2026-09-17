@@ -23,6 +23,11 @@ spec:
   ruleNamespaceSelector:
     matchLabels:
       name: monitoring
+  alerting:
+    alertmanagers:
+    - namespace: monitoring
+      name: alertmanager
+      port: web
   retention: 30d
   retentionSize: 8GB
   resources:
