@@ -70,7 +70,7 @@ kubectl logs -n task-api -l app=task-service --tail=120
 ## Vault Secret Sync
 
 ```text
-kubectl apply -f k8s/external-secrets/task-service-secrets.yaml
+kubectl apply -k k8s/platform/secrets/base
   -> API Server stores ExternalSecret
   -> ESO controller sees ExternalSecret
   -> ESO logs into Vault using SecretStore

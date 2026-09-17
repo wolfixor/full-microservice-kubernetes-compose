@@ -63,7 +63,7 @@ k8s/argocd/applications/platform-messaging.yaml
   -> syncs k8s/kafka
 
 k8s/argocd/applications/platform-secrets.yaml
-  -> syncs k8s/external-secrets
+  -> renders and syncs k8s/platform/secrets/base
 ```
 
 GitOps flow:

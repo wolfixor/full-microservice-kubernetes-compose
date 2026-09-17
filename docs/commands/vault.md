@@ -165,9 +165,8 @@ kubectl api-resources --api-group=external-secrets.io
 ## 8. Sync Vault Secret Into Kubernetes
 
 ```bash
-kubectl apply -f k8s/external-secrets/vault-secretstore.yaml
-kubectl apply -f k8s/external-secrets/task-service-secrets.yaml
-kubectl apply -f k8s/external-secrets/kibana-secrets.yaml
+kubectl kustomize k8s/platform/secrets/base
+kubectl apply -k k8s/platform/secrets/base
 ```
 
 Check:

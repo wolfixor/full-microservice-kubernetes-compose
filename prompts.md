@@ -1290,6 +1290,7 @@ Current state:
 - raw YAML helped us learn the components, but it is not the final production workflow
 - first safe slice started: production IaC docs and target folders added
 - first low-risk component started: RBAC converted to `k8s/platform/rbac/base` Kustomize path
+- second low-risk component started: External Secrets converted to `k8s/platform/secrets/base` Kustomize path
 
 Goal:
 

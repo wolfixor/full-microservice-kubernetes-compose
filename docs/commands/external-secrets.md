@@ -5,7 +5,7 @@
 Create namespace:
 
 ```bash
-kubectl apply -f k8s/external-secrets/namespace.yaml
+kubectl apply -f k8s/platform/secrets/base/namespace.yaml
 ```
 
 Install with Helm:
@@ -91,12 +91,11 @@ policy task-api-read
 ServiceAccount task-api/vault-secret-reader
 ```
 
-Apply:
+Render and apply the complete Kustomize base:
 
 ```bash
-kubectl apply -f k8s/external-secrets/vault-secretstore.yaml
-kubectl apply -f k8s/external-secrets/task-service-secrets.yaml
-kubectl apply -f k8s/external-secrets/kibana-secrets.yaml
+kubectl kustomize k8s/platform/secrets/base
+kubectl apply -k k8s/platform/secrets/base
 ```
 
 Check:

@@ -174,6 +174,15 @@ kubectl auth can-i create pods --subresource=exec --as=operator@example.com --as
 kubectl auth can-i create pods --as=operator@example.com --as-group=platform-operators -n task-api
 ```
 
+Current second conversion:
+
+```bash
+kubectl kustomize k8s/platform/secrets/base
+kubectl apply --dry-run=client --validate=false -k k8s/platform/secrets/base
+kubectl get application platform-secrets -n argocd
+kubectl get secretstore,externalsecret -n task-api
+```
+
 Avoid first:
 
 ```text

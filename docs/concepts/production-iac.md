@@ -312,6 +312,15 @@ rbac
   Argo CD app: platform-rbac
 ```
 
+Current second conversion:
+
+```text
+external secrets
+  old raw path: k8s/external-secrets
+  production path: k8s/platform/secrets/base
+  Argo CD app: platform-secrets
+```
+
 Risky candidates:
 
 ```text
