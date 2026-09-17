@@ -128,6 +128,10 @@ releases:
   - kube-state-metrics:
       image:
         tag: {{ .Values.operators.kubeStateMetricsImageTag | quote }}
+    prometheus:
+      prometheusSpec:
+        image:
+          tag: {{ .Values.operators.prometheusImageTag | quote }}
 
 - name: strimzi-cluster-operator
   namespace: kafka

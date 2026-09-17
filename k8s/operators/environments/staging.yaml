@@ -12,3 +12,4 @@ operators:
   kyvernoForceFailurePolicyIgnore: false
   trivyScanJobsConcurrentLimit: 5
   kubeStateMetricsImageTag: v2.20.0
+  prometheusImageTag: v3.14.0-distroless
