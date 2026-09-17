@@ -1,0 +1,30 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: platform-enforce-no-privileged
+  annotations:
+    policies.kyverno.io/title: Enforce No Privileged Containers
+    policies.kyverno.io/category: Platform Standards
+    policies.kyverno.io/severity: high
+spec:
+  validationFailureAction: Enforce
+  background: true
+  rules:
+  - name: disallow-privileged-containers
+    match:
+      any:
+      - resources:
+          kinds:
+          - Pod
+          namespaces:
+          - task-api
+    validate:
+      message: "Privileged containers are blocked in task-api."
+      pattern:
+        spec:
+          =(initContainers):
+          - =(securityContext):
+              =(privileged): "false"
+          containers:
+          - =(securityContext):
+              =(privileged): "false"

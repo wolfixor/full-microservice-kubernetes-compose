@@ -1,0 +1,91 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: platform-audit-baseline
+  annotations:
+    policies.kyverno.io/title: Platform Audit Baseline
+    policies.kyverno.io/category: Platform Standards
+    policies.kyverno.io/severity: medium
+spec:
+  validationFailureAction: Audit
+  background: true
+  rules:
+  - name: require-team-label
+    match:
+      any:
+      - resources:
+          kinds:
+          - Pod
+          namespaces:
+          - task-api
+    validate:
+      message: "Pods must include app, version, and team labels."
+      pattern:
+        metadata:
+          labels:
+            app: "?*"
+            version: "?*"
+            team: "?*"
+  - name: disallow-privileged-containers
+    match:
+      any:
+      - resources:
+          kinds:
+          - Pod
+          namespaces:
+          - task-api
+    validate:
+      message: "Privileged containers are not allowed."
+      pattern:
+        spec:
+          =(initContainers):
+          - =(securityContext):
+              =(privileged): "false"
+          containers:
+          - =(securityContext):
+              =(privileged): "false"
+  - name: require-resource-requests-and-limits
+    match:
+      any:
+      - resources:
+          kinds:
+          - Pod
+          namespaces:
+          - task-api
+    validate:
+      message: "Containers must set CPU/memory requests and limits."
+      pattern:
+        spec:
+          containers:
+          - resources:
+              requests:
+                cpu: "?*"
+                memory: "?*"
+              limits:
+                cpu: "?*"
+                memory: "?*"
+  - name: require-probes
+    match:
+      any:
+      - resources:
+          kinds:
+          - Pod
+          namespaces:
+          - task-api
+    exclude:
+      any:
+      - resources:
+          kinds:
+          - Pod
+          namespaces:
+          - task-api
+          selector:
+            matchLabels:
+              policy.openai.local/skip-probes: "true"
+    validate:
+      message: "Long-running app containers should set livenessProbe and readinessProbe."
+      pattern:
+        spec:
+          containers:
+          - livenessProbe: "?*"
+            readinessProbe: "?*"

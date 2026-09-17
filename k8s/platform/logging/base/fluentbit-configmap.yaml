@@ -62,8 +62,8 @@ data:
         match                    kube.*
         host                     elasticsearch-es-http
         port                     9200
-        http_user                elastic
-        http_passwd              6Ta3x9lqaa03avP9B7k515ru
+        http_user                ${ES_USER}
+        http_passwd              ${ES_PASSWORD}
         retry_limit              2
         tls                      off
         logstash_format          on
