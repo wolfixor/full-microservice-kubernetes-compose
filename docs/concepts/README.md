@@ -6,7 +6,6 @@ Read these when you want to understand what is happening.
 - [Alertmanager](alertmanager.md)
 - [Argo CD](argocd.md)
 - [Argo Rollouts](argo-rollouts.md)
-- [Ceph and Rook](ceph.md)
 - [CloudNativePG](cloudnative-pg.md)
 - [ELK stack](elk-stack.md)
 - [External Secrets Operator](external-secrets.md)

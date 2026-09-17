@@ -65,7 +65,7 @@ Then consume `task.created` again. Expected: a JSON event from `task-service`.
 docker build -t registry.gitlab.shiveh.com/mapir/upstream/kibana:search-service ./search-service
 docker push registry.gitlab.shiveh.com/mapir/upstream/kibana:search-service
 
-kubectl apply -f search-service/k8s/deployment.yaml
+kubectl apply -f k8s/apps/search-service/base/workload.yaml
 kubectl rollout restart deployment/search-service -n task-api
 ```
 

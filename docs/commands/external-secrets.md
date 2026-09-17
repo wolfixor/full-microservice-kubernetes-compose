@@ -114,7 +114,7 @@ kubectl get secret kibana-encryption-keys -n task-api
 Apply task-service after the Vault-backed Secrets exist:
 
 ```bash
-kubectl apply -f task-service/k8s/rollout.yaml
+kubectl apply -f k8s/apps/task-service/base/rollout.yaml
 kubectl get pods -n task-api -l app=task-service
 ```
 

@@ -176,7 +176,7 @@ search:...
 ## Apply Flow
 
 ```bash
-kubectl apply -f k8s/redis-cluster.yaml
+kubectl apply -k k8s/platform/cache/base
 kubectl rollout status statefulset/redis-cluster -n task-api --timeout=300s
 kubectl wait --for=condition=complete job/redis-cluster-init -n task-api --timeout=300s
 ```
@@ -184,20 +184,20 @@ kubectl wait --for=condition=complete job/redis-cluster-init -n task-api --timeo
 Then update services to use Redis Cluster:
 
 ```bash
-kubectl apply -f user-service/k8s/deployment.yaml
-kubectl apply -f task-service/k8s/rollout.yaml
-kubectl apply -f comment-service/k8s/deployment.yaml
-kubectl apply -f search-service/k8s/deployment.yaml
+kubectl apply -f k8s/apps/user-service/base/workload.yaml
+kubectl apply -f k8s/apps/task-service/base/rollout.yaml
+kubectl apply -f k8s/apps/comment-service/base/workload.yaml
+kubectl apply -f k8s/apps/search-service/base/workload.yaml
 ```
 
 ## Check
 
 ```bash
 kubectl exec -n task-api redis-cluster-0 -- \
-  redis-cli -a supersecure cluster info
+  redis-cli -a ${REDIS_PASSWORD} cluster info
 
 kubectl exec -n task-api redis-cluster-0 -- \
-  redis-cli -a supersecure cluster nodes
+  redis-cli -a ${REDIS_PASSWORD} cluster nodes
 ```
 
 ## Current Note

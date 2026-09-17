@@ -77,7 +77,7 @@ AnalysisRun
 Then this works:
 
 ```text
-task-service/k8s/rollout.yaml
+k8s/apps/task-service/base/rollout.yaml
   -> Rollout/task-service
   -> Argo controller creates ReplicaSets and Pods
 ```
@@ -102,7 +102,7 @@ ScheduledBackup
 Then this works:
 
 ```text
-task-service/k8s/postgres-cnpg.yaml
+k8s/platform/data/task-db/base/cluster.yaml
   -> Cluster/task-db
   -> CloudNativePG controller creates PostgreSQL pods, PVCs, and services
 ```
@@ -110,7 +110,7 @@ task-service/k8s/postgres-cnpg.yaml
 And:
 
 ```text
-task-service/k8s/pooler.yaml
+k8s/platform/data/task-db/base/pooler.yaml
   -> Pooler/task-db-pooler-rw
   -> CloudNativePG controller creates PgBouncer pods and service
 ```

@@ -69,7 +69,7 @@ comment.created
 comment.deleted
 ```
 
-They do not create topics at runtime. Topics are created from `k8s/kafka/topics.yaml`.
+They do not create topics at runtime. Topics are created from `k8s/platform/messaging/base/topics.yaml`.
 
 ## Who Consumes Events
 

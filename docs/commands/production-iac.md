@@ -31,26 +31,26 @@ kubectl annotate application -n argocd platform-root \
 Render:
 
 ```bash
-kubectl kustomize k8s/environments/local
+kubectl kustomize k8s/environments/local/apps
 ```
 
 Validate client-side:
 
 ```bash
 kubectl apply --dry-run=client --validate=false \
-  -k k8s/environments/local
+  -k k8s/environments/local/apps
 ```
 
 Diff against cluster:
 
 ```bash
-kubectl diff -k k8s/environments/local
+kubectl diff -k k8s/environments/local/apps
 ```
 
 Apply manually only for local lab/testing:
 
 ```bash
-kubectl apply -k k8s/environments/local
+kubectl apply -k k8s/environments/local/apps
 ```
 
 Production direction:
@@ -103,23 +103,30 @@ helm diff upgrade --allow-unreleased <release> <chart> \
 
 ## Helmfile
 
+The existing local cluster keeps Helmfile operator installation disabled so it
+does not adopt controllers installed from raw bundles.
+
+```bash
+helmfile -f k8s/operators/helmfile.yaml.gotmpl -e local list
+```
+
 Diff:
 
 ```bash
-helmfile -f helmfile.yaml diff
+helmfile -f k8s/operators/helmfile.yaml.gotmpl -e prod diff
 ```
 
 Apply:
 
 ```bash
-helmfile -f helmfile.yaml apply
+helmfile -f k8s/operators/helmfile.yaml.gotmpl -e prod apply
 ```
 
 Environment-specific:
 
 ```bash
-helmfile -e local -f helmfile.yaml diff
-helmfile -e prod -f helmfile.yaml diff
+helmfile -e local -f k8s/operators/helmfile.yaml.gotmpl list
+helmfile -e prod -f k8s/operators/helmfile.yaml.gotmpl template
 ```
 
 ## Safe Migration Checklist
@@ -163,33 +170,28 @@ external-secrets
 pgadmin
 ```
 
-Current first conversion:
+Current managed Kustomize layers:
 
 ```bash
 kubectl kustomize k8s/platform/rbac/base
-kubectl apply --dry-run=client --validate=false -k k8s/platform/rbac/base
+kubectl kustomize k8s/platform/secrets/base
+kubectl kustomize k8s/platform/networking/base
+kubectl kustomize k8s/platform/messaging/base
+kubectl kustomize k8s/platform/observability/base
+kubectl kustomize k8s/platform/policy/base
+kubectl kustomize k8s/platform/logging/base
+kubectl kustomize k8s/platform/cache/base
+kubectl kustomize k8s/platform/data/task-db/base
+kubectl kustomize k8s/environments/local/apps
+```
+
+RBAC checks:
+
+```bash
 kubectl auth can-i get pods --as=developer@example.com --as-group=platform-developers -n task-api
 kubectl auth can-i get secrets --as=developer@example.com --as-group=platform-developers -n task-api
 kubectl auth can-i create pods --subresource=exec --as=operator@example.com --as-group=platform-operators -n task-api
 kubectl auth can-i create pods --as=operator@example.com --as-group=platform-operators -n task-api
-```
-
-Current second conversion:
-
-```bash
-kubectl kustomize k8s/platform/secrets/base
-kubectl apply --dry-run=client --validate=false -k k8s/platform/secrets/base
-kubectl get application platform-secrets -n argocd
-kubectl get secretstore,externalsecret -n task-api
-```
-
-Avoid first:
-
-```text
-postgres cluster
-kafka cluster
-elasticsearch
-kong gateway
 ```
 
 ## Rollback Commands

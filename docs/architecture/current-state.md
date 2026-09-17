@@ -48,22 +48,32 @@ k8s/argocd/projects/task-api-platform.yaml
   -> allowed repo, cluster, namespaces, resource kinds
 
 k8s/argocd/applications/platform-root.yaml
-  -> syncs k8s root manifests
+  -> renders k8s/argocd/kustomization.yaml
+  -> owns the AppProject and child Applications only
 
 k8s/argocd/applications/platform-rbac.yaml
-  -> syncs k8s/rbac
+  -> syncs k8s/platform/rbac/base
 
 k8s/argocd/applications/platform-networking.yaml
-  -> syncs k8s/network-policies
+  -> syncs k8s/platform/networking/base
 
 k8s/argocd/applications/platform-observability.yaml
-  -> syncs k8s/monitoring
+  -> syncs k8s/platform/observability/base
 
 k8s/argocd/applications/platform-messaging.yaml
-  -> syncs k8s/kafka
+  -> syncs k8s/platform/messaging/base
 
 k8s/argocd/applications/platform-secrets.yaml
   -> renders and syncs k8s/platform/secrets/base
+
+k8s/argocd/applications/platform-cache.yaml
+  -> syncs k8s/platform/cache/base
+
+k8s/argocd/applications/platform-data.yaml
+  -> syncs k8s/platform/data/task-db/base
+
+k8s/argocd/applications/platform-workloads.yaml
+  -> syncs k8s/environments/local/apps
 ```
 
 GitOps flow:
@@ -187,4 +197,15 @@ production direction
   -> operators for stateful systems
   -> tested backup/restore
   -> no downtime by default
+```
+
+Repository ownership:
+
+```text
+k8s/operators                 Helmfile and offline operator bundles
+k8s/platform/*/base           shared long-running resources
+k8s/apps/*/base               long-running business workloads
+k8s/apps/*/operations         migrations, backups, and drills (manual)
+k8s/environments/local        local composition and local-only tools
+k8s/examples                  educational manifests, never autosynced
 ```

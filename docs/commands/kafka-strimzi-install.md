@@ -11,8 +11,8 @@ kubectl wait deployment/strimzi-cluster-operator -n kafka --for=condition=Availa
 Then apply the local Kafka resources:
 
 ```bash
-kubectl apply -f k8s/kafka/kafka-cluster.yaml
-kubectl apply -f k8s/kafka/topics.yaml
+kubectl apply -f k8s/platform/messaging/base/kafka-cluster.yaml
+kubectl apply -f k8s/platform/messaging/base/topics.yaml
 ```
 
 The internal bootstrap address used by services is:

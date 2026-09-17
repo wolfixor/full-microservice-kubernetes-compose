@@ -14,10 +14,22 @@ kubectl wait deployment/cnpg-controller-manager -n cnpg-system --for=condition=A
 ## Apply Task Database
 
 ```bash
-kubectl apply -f task-service/k8s/postgres-cnpg.yaml
+kubectl apply -f k8s/platform/data/task-db/base/cluster.yaml
 kubectl wait cluster/task-db -n task-api --for=condition=Ready --timeout=600s
 
-kubectl apply -f task-service/k8s/pooler.yaml
+kubectl apply -f k8s/platform/data/task-db/base/pooler.yaml
+```
+
+## Apply Backup Setup
+
+This uses the local MinIO from the Velero step as S3-compatible storage.
+
+```bash
+kubectl apply -f k8s/environments/local/platform/backup/velero/yaml/minio-create-cnpg-bucket.yaml
+kubectl wait --for=condition=complete job/minio-create-cnpg-bucket -n velero --timeout=300s
+
+kubectl apply -f k8s/platform/data/task-db/base/cluster.yaml
+kubectl apply -f k8s/apps/task-service/operations/postgres-backup.yaml
 ```
 
 ## Check
@@ -25,13 +37,14 @@ kubectl apply -f task-service/k8s/pooler.yaml
 ```bash
 kubectl get cluster -n task-api
 kubectl get pooler -n task-api
+kubectl get backup -n task-api
 kubectl get pods -n task-api -l cnpg.io/cluster=task-db
 kubectl get svc -n task-api | grep task-db
 ```
 
 ## Important
 
-Do not run the old `task-service/k8s/postgres-statefulset-manual.yaml` and the new `task-service/k8s/postgres-cnpg.yaml` for the same service at the same time.
+Do not run the old `k8s/examples/task-service/postgres-statefulset.yaml` and the new `k8s/platform/data/task-db/base/cluster.yaml` for the same service at the same time.
 
 Use one database path:
 

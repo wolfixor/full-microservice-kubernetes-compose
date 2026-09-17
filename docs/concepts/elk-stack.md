@@ -158,4 +158,3 @@ request_id: "<id>"
 ```
 
 That should show the related Kong and app logs for the same request.
-

@@ -3,8 +3,8 @@
 ## 1. Install Local Vault
 
 ```bash
-kubectl apply -f k8s/vault/namespace.yaml
-kubectl apply -f k8s/vault/vault-dev.yaml
+kubectl apply -f k8s/environments/local/platform/vault/namespace.yaml
+kubectl apply -f k8s/environments/local/platform/vault/vault-dev.yaml
 kubectl rollout status deployment/vault -n vault --timeout=300s
 kubectl get pods -n vault
 ```
@@ -73,7 +73,7 @@ Vault can now validate Kubernetes ServiceAccount tokens.
 ## 4. Create Secret And Policy
 
 ```bash
-kubectl cp k8s/vault/task-api-read-policy.hcl vault/"$VAULT_POD":/tmp/task-api-read.hcl
+kubectl cp k8s/environments/local/platform/vault/task-api-read-policy.hcl vault/"$VAULT_POD":/tmp/task-api-read.hcl
 
 kubectl exec -n vault "$VAULT_POD" -- sh -c '
 export VAULT_ADDR=http://127.0.0.1:8200
@@ -103,7 +103,7 @@ policy task-api-read can read those secret paths
 ## 5. Bind Kubernetes Identity To Vault
 
 ```bash
-kubectl apply -f k8s/vault/task-api-vault-reader.yaml
+kubectl apply -f k8s/environments/local/platform/vault/task-api-vault-reader.yaml
 ```
 
 ```bash

@@ -61,15 +61,15 @@ Drift means someone changed the cluster manually and now it does not match Git.
 
 ## Current Lab Rule
 
-For now, Applications are manual sync.
+For now, Applications use conservative autosync.
 
 ```text
-no auto-sync
-no prune
-no self-heal
+autosync: enabled
+selfHeal: enabled
+prune: disabled
 ```
 
-This is safer while the repo is still being cleaned into production shape.
+That means Argo CD applies Git changes and repairs drift, but does not delete live resources that disappear from Git yet.
 
 ## Production Direction
 

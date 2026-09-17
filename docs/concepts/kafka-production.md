@@ -161,7 +161,6 @@ High lag means a consumer is slow, down, or failing.
 ## Apply
 
 ```bash
-kubectl apply -f k8s/kafka/kafka-cluster.yaml
-kubectl apply -f k8s/kafka/topics.yaml
+kubectl apply -f k8s/platform/messaging/base/kafka-cluster.yaml
+kubectl apply -f k8s/platform/messaging/base/topics.yaml
 ```
-

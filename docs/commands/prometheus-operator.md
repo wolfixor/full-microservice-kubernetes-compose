@@ -26,4 +26,4 @@ kubectl apply -k "${TMPDIR}"
 kubectl wait pod -n monitoring -l app.kubernetes.io/name=prometheus-operator --for=condition=Ready --timeout=300s
 ```
 
-After this, apply the platform monitoring resources from `k8s/monitoring/`.
+After this, apply the platform monitoring resources from `k8s/platform/observability/base/`.

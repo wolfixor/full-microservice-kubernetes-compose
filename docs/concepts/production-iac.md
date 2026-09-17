@@ -307,7 +307,7 @@ Current first conversion:
 
 ```text
 rbac
-  old raw path: k8s/rbac
+  old raw path: k8s/platform/rbac/base
   production path: k8s/platform/rbac/base
   Argo CD app: platform-rbac
 ```

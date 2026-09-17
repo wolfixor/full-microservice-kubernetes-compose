@@ -16,7 +16,7 @@ So we do not manually create the task PostgreSQL `StatefulSet` anymore.
 ## Old Manual Way
 
 ```text
-task-service/k8s/postgres-statefulset-manual.yaml
+k8s/examples/task-service/postgres-statefulset.yaml
   -> StatefulSet/task-service-db
   -> one PostgreSQL pod
   -> one PVC
@@ -27,7 +27,7 @@ This is good for learning, but it is not a production database pattern.
 ## New Operator Way
 
 ```text
-task-service/k8s/postgres-cnpg.yaml
+k8s/platform/data/task-db/base/cluster.yaml
   -> Cluster/task-db
   -> 3 PostgreSQL pods
   -> primary plus replicas
@@ -93,7 +93,7 @@ cnpg-system namespace
 ### Step 2: Create the PostgreSQL Cluster
 
 ```bash
-kubectl apply -f task-service/k8s/postgres-cnpg.yaml
+kubectl apply -f k8s/platform/data/task-db/base/cluster.yaml
 kubectl wait cluster/task-db -n task-api --for=condition=Ready --timeout=600s
 ```
 
@@ -124,7 +124,7 @@ operator creates: PostgreSQL pods
 ### Step 3: Create PgBouncer Pooler
 
 ```bash
-kubectl apply -f task-service/k8s/pooler.yaml
+kubectl apply -f k8s/platform/data/task-db/base/pooler.yaml
 ```
 
 What this does:

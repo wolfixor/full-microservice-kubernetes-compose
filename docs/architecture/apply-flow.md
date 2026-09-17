@@ -43,7 +43,7 @@ kubectl get clusterpolicy
 ## Task Service Rollout
 
 ```text
-kubectl apply -f task-service/k8s/rollout.yaml
+kubectl apply -f k8s/apps/task-service/base/rollout.yaml
   -> API Server stores Rollout
   -> Kyverno audits manifest
   -> Argo Rollouts sees Rollout changed
@@ -92,7 +92,7 @@ kubectl logs -n external-secrets deploy/external-secrets --tail=120
 ## PostgreSQL CNPG
 
 ```text
-kubectl apply -f task-service/k8s/postgres-cnpg.yaml
+kubectl apply -f k8s/platform/data/task-db/base/cluster.yaml
   -> API Server stores Cluster
   -> CNPG operator sees Cluster
   -> CNPG creates Postgres pods
@@ -115,12 +115,12 @@ kubectl describe cluster task-db -n task-api
 ## Kafka Strimzi
 
 ```text
-kubectl apply -f k8s/kafka/kafka-cluster.yaml
+kubectl apply -f k8s/platform/messaging/base/kafka-cluster.yaml
   -> API Server stores Kafka CR
   -> Strimzi operator creates brokers/controllers
   -> Entity Operator manages KafkaTopic CRs
 
-kubectl apply -f k8s/kafka/topics.yaml
+kubectl apply -f k8s/platform/messaging/base/topics.yaml
   -> KafkaTopic CRs created
   -> Strimzi creates topics inside Kafka
 ```
@@ -137,7 +137,7 @@ kubectl describe kafkatopic task.created -n kafka
 ## NetworkPolicy
 
 ```text
-kubectl apply -f k8s/network-policies/
+kubectl apply -k k8s/platform/networking/base
   -> API Server stores policies
   -> CNI enforces allowed traffic
 ```

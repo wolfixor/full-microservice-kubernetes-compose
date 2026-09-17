@@ -71,8 +71,8 @@ SearchServiceKafkaEventProcessingFailures
 Apply:
 
 ```bash
-kubectl apply -f k8s/monitoring/prometheus-rules.yaml
-kubectl apply -f k8s/monitoring/prometheus-managed.yaml
+kubectl apply -f k8s/platform/observability/base/prometheus-rules.yaml
+kubectl apply -f k8s/platform/observability/base/prometheus-managed.yaml
 ```
 
 Check:
@@ -106,4 +106,3 @@ Kyverno or OPA Gatekeeper -> policy enforcement
 ```
 
 Image tags and rollback strategy should be handled during the CI/CD step.
-

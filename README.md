@@ -171,22 +171,21 @@ container stdout/stderr
 ### 1. Core Namespace And Shared Infra
 
 ```bash
-kubectl apply -f k8s/namespace.yaml
-kubectl apply -f k8s/secret.yaml
-kubectl apply -f k8s/redis-cluster.yaml
+kubectl apply -f k8s/platform/secrets/base/namespace.yaml
+kubectl apply -k k8s/platform/cache/base
 kubectl rollout status statefulset/redis-cluster -n task-api --timeout=300s
 kubectl wait --for=condition=complete job/redis-cluster-init -n task-api --timeout=300s
-kubectl apply -f k8s/elasticsearch-deployment.yaml
+kubectl apply -k k8s/platform/logging/base
 ```
 
 ### 2. Kafka
 
 ```bash
-kubectl apply -f k8s/kafka/namespace.yaml
+kubectl apply -f k8s/platform/messaging/base/namespace.yaml
 kubectl create -f https://strimzi.io/install/latest?namespace=kafka -n kafka
 kubectl wait deployment/strimzi-cluster-operator -n kafka --for=condition=Available --timeout=300s
-kubectl apply -f k8s/kafka/kafka-cluster.yaml
-kubectl apply -f k8s/kafka/topics.yaml
+kubectl apply -f k8s/platform/messaging/base/kafka-cluster.yaml
+kubectl apply -f k8s/platform/messaging/base/topics.yaml
 ```
 
 Production operation checks:
@@ -210,30 +209,30 @@ kubectl exec -n kafka -it platform-kafka-brokers-0 -- \
 kubectl apply --server-side -f https://raw.githubusercontent.com/cloudnative-pg/cloudnative-pg/release-1.30/releases/cnpg-1.30.0.yaml
 kubectl wait deployment/cnpg-controller-manager -n cnpg-system --for=condition=Available --timeout=300s
 
-kubectl apply -f task-service/k8s/postgres-cnpg.yaml
+kubectl apply -f k8s/platform/data/task-db/base/cluster.yaml
 kubectl wait cluster/task-db -n task-api --for=condition=Ready --timeout=600s
-kubectl apply -f task-service/k8s/pooler.yaml
+kubectl apply -f k8s/platform/data/task-db/base/pooler.yaml
 ```
 
 ### 4. Other Databases
 
 ```bash
-kubectl apply -f user-service/k8s/postgres.yaml
-kubectl apply -f comment-service/k8s/postgres.yaml
-kubectl apply -f activity-service/k8s/postgres.yaml
-kubectl apply -f notification-service/k8s/postgres.yaml
+kubectl apply -f k8s/apps/user-service/base/database.yaml
+kubectl apply -f k8s/apps/comment-service/base/database.yaml
+kubectl apply -f k8s/apps/activity-service/base/database.yaml
+kubectl apply -f k8s/apps/notification-service/base/database.yaml
 ```
 
-Do not apply `task-service/k8s/postgres-statefulset-manual.yaml` when using CloudNativePG for `task-service`.
+Do not apply `k8s/examples/task-service/postgres-statefulset.yaml` when using CloudNativePG for `task-service`.
 
 ### 5. Migrations
 
 ```bash
-kubectl apply -f user-service/k8s/migration-job.yaml
-kubectl apply -f task-service/k8s/migration-job.yaml
-kubectl apply -f comment-service/k8s/migration-job.yaml
-kubectl apply -f activity-service/k8s/migration-job.yaml
-kubectl apply -f notification-service/k8s/migration-job.yaml
+kubectl apply -f k8s/apps/user-service/operations/migration-job.yaml
+kubectl apply -f k8s/apps/task-service/operations/migration-job.yaml
+kubectl apply -f k8s/apps/comment-service/operations/migration-job.yaml
+kubectl apply -f k8s/apps/activity-service/operations/migration-job.yaml
+kubectl apply -f k8s/apps/notification-service/operations/migration-job.yaml
 
 kubectl wait --for=condition=complete job/user-service-migrations -n task-api --timeout=300s
 kubectl wait --for=condition=complete job/task-service-migrations -n task-api --timeout=300s
@@ -245,20 +244,20 @@ kubectl wait --for=condition=complete job/notification-service-migrations -n tas
 ### 6. Services And Gateway
 
 ```bash
-kubectl apply -f user-service/k8s/deployment.yaml
-kubectl apply -f task-service/k8s/deployment.yaml
-kubectl apply -f comment-service/k8s/deployment.yaml
-kubectl apply -f search-service/k8s/deployment.yaml
-kubectl apply -f activity-service/k8s/deployment.yaml
-kubectl apply -f notification-service/k8s/deployment.yaml
+kubectl apply -f k8s/apps/user-service/base/workload.yaml
+kubectl apply -k k8s/apps/task-service/base
+kubectl apply -f k8s/apps/comment-service/base/workload.yaml
+kubectl apply -f k8s/apps/search-service/base/workload.yaml
+kubectl apply -f k8s/apps/activity-service/base/workload.yaml
+kubectl apply -f k8s/apps/notification-service/base/workload.yaml
 
-kubectl apply -f kong-gateway/k8s/
+kubectl apply -k k8s/apps/kong/base
 ```
 
 ### 7. Operator-Managed Prometheus
 
 ```bash
-kubectl apply -f k8s/monitoring/namespace.yaml
+kubectl apply -f k8s/platform/observability/base/namespace.yaml
 ```
 
 Install pinned Prometheus Operator `v0.93.0`:
@@ -280,17 +279,17 @@ kubectl wait pod -n monitoring -l app.kubernetes.io/name=prometheus-operator --f
 Apply platform monitoring:
 
 ```bash
-kubectl apply -f k8s/monitoring/prometheus-rbac.yaml
-kubectl apply -f k8s/monitoring/postgres-exporter.yaml
-kubectl apply -f k8s/monitoring/redis-exporter.yaml
-kubectl apply -f k8s/monitoring/elasticsearch-exporter.yaml
-kubectl apply -f k8s/monitoring/node-exporter.yaml
-kubectl apply -f k8s/monitoring/kube-state-metrics.yaml
-kubectl apply -f k8s/monitoring/service-monitors.yaml
-kubectl apply -f k8s/monitoring/prometheus-rules.yaml
-kubectl apply -f k8s/monitoring/prometheus-managed.yaml
-kubectl apply -f k8s/monitoring/grafana-dashboards.yaml
-kubectl apply -f k8s/monitoring/grafana-deployment.yaml
+kubectl apply -f k8s/platform/observability/base/prometheus-rbac.yaml
+kubectl apply -f k8s/platform/observability/base/postgres-exporter.yaml
+kubectl apply -f k8s/platform/observability/base/redis-exporter.yaml
+kubectl apply -f k8s/platform/observability/base/elasticsearch-exporter.yaml
+kubectl apply -f k8s/platform/observability/base/node-exporter.yaml
+kubectl apply -f k8s/platform/observability/base/kube-state-metrics.yaml
+kubectl apply -f k8s/platform/observability/base/service-monitors.yaml
+kubectl apply -f k8s/platform/observability/base/prometheus-rules.yaml
+kubectl apply -f k8s/platform/observability/base/prometheus-managed.yaml
+kubectl apply -f k8s/platform/observability/base/grafana-dashboards.yaml
+kubectl apply -f k8s/platform/observability/base/grafana-deployment.yaml
 ```
 
 ### 8. Argo Rollouts For Task Service
@@ -300,20 +299,16 @@ kubectl create namespace argo-rollouts
 kubectl apply -n argo-rollouts -f https://github.com/argoproj/argo-rollouts/releases/v1.9.0/download/install.yaml
 kubectl wait deployment/argo-rollouts -n argo-rollouts --for=condition=Available --timeout=300s
 
-kubectl apply -f task-service/k8s/analysis-template.yaml
+kubectl apply -f k8s/apps/task-service/base/analysis-template.yaml
 kubectl delete deployment task-service -n task-api
-kubectl apply -f task-service/k8s/rollout.yaml
+kubectl apply -f k8s/apps/task-service/base/rollout.yaml
 ```
 
 ### 9. Logging
 
 ```bash
-kubectl apply -f k8s/kibana-deployment.yaml
-kubectl apply -f k8s/fluentbit/configmap.yaml
-kubectl apply -f k8s/fluentbit/daemonset.yaml
-kubectl apply -f kong-gateway/k8s/log-receiver.yaml
-kubectl apply -f kong-gateway/k8s/log-endpoint.yaml
-kubectl apply -f kong-gateway/k8s/configmap.yaml
+kubectl apply -k k8s/platform/logging/base
+kubectl apply -k k8s/apps/kong/base
 kubectl rollout restart deployment/kong-gateway -n task-api
 ```
 
@@ -344,7 +339,10 @@ curl "http://localhost:8888/search/?q=Kafka"
 
 ## Useful Docs
 
-Start here: [Project docs](docs/README.md)
+Start here:
+
+- [Start here](docs/START-HERE.md)
+- [Project docs](docs/README.md)
 
 Concept docs explain what is happening:
 
@@ -353,22 +351,22 @@ Concept docs explain what is happening:
 - [Activity service](docs/concepts/activity-service.md)
 - [Notification service](docs/concepts/notification-service.md)
 - [CloudNativePG](docs/concepts/cloudnative-pg.md)
+- [PostgreSQL operations](docs/concepts/postgresql-operations.md)
 - [Redis Cluster](docs/concepts/redis-cluster.md)
 - [Prometheus stack](docs/concepts/prometheus-stack.md)
 - [Velero backup and restore](docs/concepts/velero.md)
 - [Observability debugging](docs/concepts/observability-debugging.md)
 - [Operator and CRD](docs/concepts/operator-crd.md)
-- [Ceph and Rook](docs/concepts/ceph.md)
 - [Argo Rollouts](docs/concepts/argo-rollouts.md)
 - [ELK stack](docs/concepts/elk-stack.md)
 
-Installation docs explain what to run:
+Command docs explain what to run:
 
-- [Full kubectl flow](docs/installation/flow-kubectl-command.md)
-- [PostgreSQL cutover](docs/installation/postgres-cutover.md)
-- [Kafka tests](docs/installation/test-kafka.md)
-- [Production monitoring checklist](docs/installation/monitoring-checklist.md)
-- [Production checklist](docs/installation/production-checklist.md)
+- [Production IaC commands](docs/commands/production-iac.md)
+- [PostgreSQL commands](docs/commands/postgresql.md)
+- [Kafka tests](docs/commands/test-kafka.md)
+- [Production monitoring checklist](docs/commands/monitoring-checklist.md)
+- [Production checklist](docs/commands/production-checklist.md)
 
 ## Docker Compose
 

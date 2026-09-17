@@ -1,4 +1,3 @@
-
 # Prometheus Stack
 
 ## Mental Model
@@ -92,7 +91,7 @@ kubectl wait pod -n monitoring -l app.kubernetes.io/name=prometheus-operator --f
 ### Step 2: Create the Prometheus Instance
 
 ```bash
-kubectl apply -f k8s/monitoring/prometheus-managed.yaml
+kubectl apply -f k8s/platform/observability/base/prometheus-managed.yaml
 ```
 
 What this does:
@@ -120,7 +119,7 @@ operator creates: StatefulSet/prometheus-k8s
 ### Step 3: Apply ServiceMonitors
 
 ```bash
-kubectl apply -f k8s/monitoring/service-monitors.yaml
+kubectl apply -f k8s/platform/observability/base/service-monitors.yaml
 ```
 
 What this does:
@@ -140,15 +139,15 @@ Adding a ServiceMonitor is enough.
 ### Step 4: Apply Everything Else
 
 ```bash
-kubectl apply -f k8s/monitoring/prometheus-rbac.yaml
-kubectl apply -f k8s/monitoring/postgres-exporter.yaml
-kubectl apply -f k8s/monitoring/redis-exporter.yaml
-kubectl apply -f k8s/monitoring/elasticsearch-exporter.yaml
-kubectl apply -f k8s/monitoring/node-exporter.yaml
-kubectl apply -f k8s/monitoring/kube-state-metrics.yaml
-kubectl apply -f k8s/monitoring/prometheus-rules.yaml
-kubectl apply -f k8s/monitoring/grafana-dashboards.yaml
-kubectl apply -f k8s/monitoring/grafana-deployment.yaml
+kubectl apply -f k8s/platform/observability/base/prometheus-rbac.yaml
+kubectl apply -f k8s/platform/observability/base/postgres-exporter.yaml
+kubectl apply -f k8s/platform/observability/base/redis-exporter.yaml
+kubectl apply -f k8s/platform/observability/base/elasticsearch-exporter.yaml
+kubectl apply -f k8s/platform/observability/base/node-exporter.yaml
+kubectl apply -f k8s/platform/observability/base/kube-state-metrics.yaml
+kubectl apply -f k8s/platform/observability/base/prometheus-rules.yaml
+kubectl apply -f k8s/platform/observability/base/grafana-dashboards.yaml
+kubectl apply -f k8s/platform/observability/base/grafana-deployment.yaml
 ```
 
 ## Full Flow Summary
@@ -201,8 +200,8 @@ Exporters              -> expose database/cache/search metrics
 ## Important Files
 
 ```text
-k8s/monitoring/prometheus-managed.yaml   -> kind: Prometheus CR
-k8s/monitoring/service-monitors.yaml     -> kind: ServiceMonitor CRs
-k8s/monitoring/prometheus-rules.yaml     -> kind: PrometheusRule CRs
-k8s/monitoring/prometheus-rbac.yaml      -> RBAC so Prometheus can read pods/services
+k8s/platform/observability/base/prometheus-managed.yaml   -> kind: Prometheus CR
+k8s/platform/observability/base/service-monitors.yaml     -> kind: ServiceMonitor CRs
+k8s/platform/observability/base/prometheus-rules.yaml     -> kind: PrometheusRule CRs
+k8s/platform/observability/base/prometheus-rbac.yaml      -> RBAC so Prometheus can read pods/services
 ```

@@ -72,15 +72,38 @@ User:
 admin
 ```
 
-## Sync Manually
+## Refresh
 
 ```bash
 kubectl get applications -n argocd
-kubectl patch application platform-rbac -n argocd --type merge \
-  -p '{"operation":{"sync":{}}}'
+kubectl annotate application -n argocd platform-rbac platform-networking platform-root platform-observability platform-messaging \
+  argocd.argoproj.io/refresh=hard --overwrite
 ```
 
-The UI is usually easier for manual sync in the lab.
+Refresh only tells Argo CD to compare Git and cluster again. It does not sync by itself.
+
+## Autosync
+
+The repo Applications use:
+
+```yaml
+syncPolicy:
+  automated:
+    prune: false
+    selfHeal: true
+```
+
+Meaning:
+
+```text
+selfHeal: true
+  -> if someone changes a managed object manually, Argo CD repairs it from Git
+
+prune: false
+  -> if something is removed from Git, Argo CD does not delete it from the cluster yet
+```
+
+Later, when the repo is cleaner, production GitOps usually enables prune carefully.
 
 ## What To Look For
 
@@ -123,16 +146,16 @@ platform-root
   -> k8s root YAML files
 
 platform-rbac
-  -> k8s/rbac
+  -> k8s/platform/rbac/base
 
 platform-networking
-  -> k8s/network-policies
+  -> k8s/platform/networking/base
 
 platform-observability
-  -> k8s/monitoring
+  -> k8s/platform/observability/base
 
 platform-messaging
-  -> k8s/kafka
+  -> k8s/platform/messaging/base
 ```
 
 ## Production Note

@@ -68,4 +68,3 @@ ExternalSecret failed
   -> check Vault path/policy
   -> check generated Kubernetes Secret
 ```
-

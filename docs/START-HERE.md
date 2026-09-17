@@ -19,10 +19,10 @@ Use this page when you forgot the project or something is broken.
 - [PostgreSQL](commands/postgresql.md): backup, WAL, restore, slow queries, locks, replication.
 - [Kafka](commands/kafka.md): missing topics, consumer lag, DLQ, broker health.
 - [Redis](commands/redis.md): cluster health, cache failures, key checks.
-- [Elasticsearch](commands/elasticsearch.md): ES pending, Kibana/search down.
+- [Elasticsearch](commands/elasticsearch.md): install and verify the ECK-managed cluster.
 - [Kibana](concepts/kibana.md): Kibana token, encryption keys, readiness flow.
 - [Argo CD](commands/argocd.md): GitOps install, sync, health, drift, rollback.
-- [Kubernetes](commands/kubernetes.md): pods pending, crashloop, services, events.
+- [Manifest Syntax](concepts/kubernetes-manifest-syntax.md): probes, resources, scheduling, services, and storage.
 - [Network Policy](commands/network-policy.md): CNI checks, allowed/blocked traffic, rollback.
 - [Alertmanager](commands/alertmanager.md): alert checks, runbooks, silences, drills.
 - [Trivy Operator](commands/trivy-operator.md): vulnerability reports, config audit reports, remediation flow.

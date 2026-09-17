@@ -122,16 +122,15 @@ offset
 ## Deploy Flow
 
 ```bash
-kubectl apply -f activity-service/k8s/postgres.yaml
-kubectl apply -f activity-service/k8s/migration-job.yaml
+kubectl apply -f k8s/apps/activity-service/base/database.yaml
+kubectl apply -f k8s/apps/activity-service/operations/migration-job.yaml
 kubectl wait --for=condition=complete job/activity-service-migrations -n task-api --timeout=300s
-kubectl apply -f activity-service/k8s/deployment.yaml
+kubectl apply -f k8s/apps/activity-service/base/workload.yaml
 ```
 
 Kong route:
 
 ```bash
-kubectl apply -f kong-gateway/k8s/configmap.yaml
+kubectl apply -f k8s/apps/kong/base/configmap.yaml
 kubectl rollout restart deployment/kong-gateway -n task-api
 ```
-

@@ -11,7 +11,7 @@ kubectl wait deployment/elastic-operator -n elastic-system --for=condition=Avail
 Then create Elasticsearch:
 
 ```bash
-kubectl apply -f k8s/elasticsearch-deployment.yaml
+kubectl apply -f k8s/platform/logging/base/elasticsearch.yaml
 kubectl wait elasticsearch/elasticsearch -n task-api --for=condition=ReconciliationComplete --timeout=600s
 ```
 
@@ -28,4 +28,3 @@ The service used by apps is:
 ```text
 elasticsearch-es-http.task-api.svc.cluster.local:9200
 ```
-

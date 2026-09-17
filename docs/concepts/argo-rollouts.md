@@ -31,7 +31,7 @@ For now, only `task-service` uses Argo Rollouts.
 File:
 
 ```text
-task-service/k8s/rollout.yaml
+k8s/apps/task-service/base/rollout.yaml
 ```
 
 This is the desired release plan for `task-service`.
@@ -61,7 +61,7 @@ The `Service` name stays `task-service`, so Kong does not need to change.
 File:
 
 ```text
-task-service/k8s/analysis-template.yaml
+k8s/apps/task-service/base/analysis-template.yaml
 ```
 
 This is the health check plan for the rollout.
@@ -146,9 +146,9 @@ argo-rollouts namespace
 ### Step 2: Replace the Deployment with a Rollout
 
 ```bash
-kubectl apply -f task-service/k8s/analysis-template.yaml
+kubectl apply -f k8s/apps/task-service/base/analysis-template.yaml
 kubectl delete deployment task-service -n task-api
-kubectl apply -f task-service/k8s/rollout.yaml
+kubectl apply -f k8s/apps/task-service/base/rollout.yaml
 ```
 
 What this does:
