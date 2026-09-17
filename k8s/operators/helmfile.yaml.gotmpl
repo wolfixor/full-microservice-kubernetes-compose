@@ -102,6 +102,9 @@ releases:
       replicas: {{ .Values.operators.kyvernoCleanupReplicas }}
     reportsController:
       replicas: {{ .Values.operators.kyvernoReportsReplicas }}
+    features:
+      forceFailurePolicyIgnore:
+        enabled: {{ .Values.operators.kyvernoForceFailurePolicyIgnore }}
 
 - name: trivy-operator
   namespace: trivy-system

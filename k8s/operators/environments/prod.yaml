@@ -8,4 +8,5 @@ operators:
   kyvernoBackgroundReplicas: 2
   kyvernoCleanupReplicas: 2
   kyvernoReportsReplicas: 2
+  kyvernoForceFailurePolicyIgnore: false
   trivyScanJobsConcurrentLimit: 10
