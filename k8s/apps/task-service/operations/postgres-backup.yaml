@@ -1,0 +1,21 @@
+apiVersion: postgresql.cnpg.io/v1
+kind: Backup
+metadata:
+  name: task-db-manual
+  namespace: task-api
+spec:
+  method: barmanObjectStore
+  cluster:
+    name: task-db
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: ScheduledBackup
+metadata:
+  name: task-db-daily
+  namespace: task-api
+spec:
+  schedule: "0 0 2 * * *"
+  backupOwnerReference: self
+  method: barmanObjectStore
+  cluster:
+    name: task-db

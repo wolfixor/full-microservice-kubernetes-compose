@@ -1,0 +1,17 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+- ../../../apps/user-service/base
+- ../../../apps/task-service/base
+- ../../../apps/comment-service/base
+- ../../../apps/search-service/base
+- ../../../apps/activity-service/base
+- ../../../apps/notification-service/base
+- ../../../apps/kong/base
+- ../../../apps/pgadmin/base
+
+labels:
+- includeSelectors: false
+  pairs:
+    app.kubernetes.io/managed-by: argocd

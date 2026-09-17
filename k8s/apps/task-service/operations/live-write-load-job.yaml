@@ -1,0 +1,39 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: task-service-live-write-load
+  namespace: task-api
+spec:
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+      - name: writer
+        image: curlimages/curl:8.10.1
+        command:
+        - sh
+        - -c
+        - |
+          set -eu
+          i=0
+          ok=0
+          fail=0
+          while [ "$i" -lt 300 ]; do
+            i=$((i + 1))
+            code="$(curl -sS -o /tmp/response.json -w "%{http_code}" -X POST http://task-service.task-api.svc.cluster.local/api/tasks/ \
+              -H "Content-Type: application/json" \
+              -d "{\"title\":\"backup-load-$i\",\"description\":\"live write during backup\",\"user_id\":\"backup-drill\"}")"
+            if [ "$code" -ge 200 ] && [ "$code" -lt 300 ]; then
+              ok=$((ok + 1))
+              echo "ok request=$i status=$code"
+            else
+              fail=$((fail + 1))
+              echo "fail request=$i status=$code body=$(cat /tmp/response.json)"
+            fi
+            sleep 1
+          done
+          echo "summary ok=$ok fail=$fail total=$i"
+          if [ "$ok" -eq 0 ]; then
+            exit 1
+          fi
+  backoffLimit: 0

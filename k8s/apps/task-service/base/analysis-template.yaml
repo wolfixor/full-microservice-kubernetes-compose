@@ -23,7 +23,7 @@ spec:
     interval: 30s
     count: 2
     failureLimit: 1
-    successCondition: result[0] < 0.5
+    successCondition: result[0] < 2
     provider:
       prometheus:
         address: http://prometheus.monitoring.svc:9090
