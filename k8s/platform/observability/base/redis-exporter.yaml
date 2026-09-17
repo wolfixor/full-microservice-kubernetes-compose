@@ -20,9 +20,15 @@ spec:
         image: docker.arvancloud.ir/oliver006/redis_exporter:v1.56.0
         args:
         - "--redis.addr=redis://redis-cluster.task-api.svc.cluster.local:6379"
-        - "--redis.password=supersecure"
+        - "--redis.password=$(REDIS_PASSWORD)"
         - "--is-cluster=true"
         - "--check-keys=*"
+        env:
+        - name: REDIS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: redis-exporter-credentials
+              key: REDIS_PASSWORD
         ports:
         - containerPort: 9121
           name: http
