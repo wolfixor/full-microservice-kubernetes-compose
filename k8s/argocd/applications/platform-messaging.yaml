@@ -10,10 +10,13 @@ spec:
   source:
     repoURL: https://github.com/wolfixor/full-microservice-kubernetes-compose.git
     targetRevision: main
-    path: k8s/kafka
+    path: k8s/platform/messaging/base
   destination:
     server: https://kubernetes.default.svc
     namespace: kafka
   syncPolicy:
+    automated:
+      prune: false
+      selfHeal: true
     syncOptions:
     - CreateNamespace=true
