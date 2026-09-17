@@ -125,6 +125,9 @@ releases:
   version: {{ .Values.versions.kubePrometheusStack | quote }}
   values:
   - values/kube-prometheus-stack.yaml
+  - kube-state-metrics:
+      image:
+        tag: {{ .Values.operators.kubeStateMetricsImageTag | quote }}
 
 - name: strimzi-cluster-operator
   namespace: kafka

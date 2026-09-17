@@ -2,27 +2,6 @@
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
-  name: prometheus
-  namespace: monitoring
-  labels:
-    app: prometheus
-    release: prometheus
-spec:
-  selector:
-    matchLabels:
-      app: prometheus
-  namespaceSelector:
-    matchNames:
-    - monitoring
-  endpoints:
-  - port: http
-    path: /metrics
-    interval: 15s
-    scrapeTimeout: 10s
----
-apiVersion: monitoring.coreos.com/v1
-kind: ServiceMonitor
-metadata:
   name: user-service
   namespace: monitoring
   labels:
@@ -245,65 +224,5 @@ spec:
   endpoints:
   - port: http
     path: /metrics
-    interval: 15s
-    scrapeTimeout: 10s
----
-apiVersion: monitoring.coreos.com/v1
-kind: ServiceMonitor
-metadata:
-  name: grafana
-  namespace: monitoring
-  labels:
-    app: grafana
-    release: prometheus
-spec:
-  selector:
-    matchLabels:
-      app: grafana
-  namespaceSelector:
-    matchNames:
-    - monitoring
-  endpoints:
-  - port: http
-    interval: 15s
-    scrapeTimeout: 10s
----
-apiVersion: monitoring.coreos.com/v1
-kind: ServiceMonitor
-metadata:
-  name: kube-state-metrics
-  namespace: monitoring
-  labels:
-    app: kube-state-metrics
-    release: prometheus
-spec:
-  selector:
-    matchLabels:
-      app: kube-state-metrics
-  namespaceSelector:
-    matchNames:
-    - monitoring
-  endpoints:
-  - port: http
-    interval: 15s
-    scrapeTimeout: 10s
----
-apiVersion: monitoring.coreos.com/v1
-kind: ServiceMonitor
-metadata:
-  name: node-exporter
-  namespace: monitoring
-  labels:
-    app: node-exporter
-    release: prometheus
-spec:
-  selector:
-    matchLabels:
-      app: node-exporter
-  namespaceSelector:
-    matchNames:
-    - monitoring
-  endpoints:
-  - port: metrics
     interval: 15s
     scrapeTimeout: 10s

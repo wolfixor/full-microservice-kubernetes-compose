@@ -72,7 +72,7 @@ Apply:
 
 ```bash
 kubectl apply -f k8s/platform/observability/base/prometheus-rules.yaml
-kubectl apply -f k8s/platform/observability/base/prometheus-managed.yaml
+helmfile -f k8s/operators/helmfile.yaml.gotmpl -e local -l name=kube-prometheus-stack sync
 ```
 
 Check:

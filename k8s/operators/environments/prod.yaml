@@ -11,3 +11,4 @@ operators:
   kyvernoReportsReplicas: 2
   kyvernoForceFailurePolicyIgnore: false
   trivyScanJobsConcurrentLimit: 10
+  kubeStateMetricsImageTag: v2.20.0
