@@ -175,6 +175,16 @@ spec:
       port: 6379
     - protocol: TCP
       port: 16379
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: redis-operator
+      podSelector:
+        matchLabels:
+          app: redis-operator
+    ports:
+    - protocol: TCP
+      port: 6379
 ---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
