@@ -7,15 +7,25 @@ redisOperator:
     version: "0.26.0"
     team: platform
 
-replicas: 1
+replicas: 2
+
+affinity:
+  podAntiAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+    - weight: 100
+      podAffinityTerm:
+        labelSelector:
+          matchLabels:
+            name: redis-operator
+        topologyKey: kubernetes.io/hostname
 
 resources:
   requests:
-    cpu: 100m
-    memory: 128Mi
-  limits:
-    cpu: 300m
+    cpu: 200m
     memory: 256Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
 
 rbac:
   enabled: true

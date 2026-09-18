@@ -40,7 +40,7 @@ spec:
       labels:
         app: task-service
       annotations:
-        kubectl.kubernetes.io/restartedAt: "2026-09-14T14:15:00Z"
+        kubectl.kubernetes.io/restartedAt: "2026-09-18T10:46:00Z"
     spec:
       serviceAccountName: task-api-workload
       automountServiceAccountToken: false

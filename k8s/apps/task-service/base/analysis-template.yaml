@@ -12,7 +12,7 @@ spec:
     successCondition: result[0] < 0.05
     provider:
       prometheus:
-        address: http://prometheus.monitoring.svc:9090
+        address: http://kube-prometheus-stack-prometheus.monitoring.svc:9090
         query: |
           (
             sum(rate(http_requests_total{service="task-service",status=~"5.*"}[1m]))
@@ -26,7 +26,7 @@ spec:
     successCondition: result[0] < 2
     provider:
       prometheus:
-        address: http://prometheus.monitoring.svc:9090
+        address: http://kube-prometheus-stack-prometheus.monitoring.svc:9090
         query: |
           histogram_quantile(
             0.95,
