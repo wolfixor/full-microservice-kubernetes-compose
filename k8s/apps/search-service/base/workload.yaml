@@ -61,7 +61,7 @@ spec:
                   name: elasticsearch-es-elastic-user
                   key: elastic
             - name: REDIS_HOST
-              value: "redis-cluster"
+              value: "platform-redis-leader"
             - name: REDIS_PORT
               value: "6379"
             - name: REDIS_DB
@@ -71,7 +71,7 @@ spec:
             - name: REDIS_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: postgres-credentials
+                  name: redis-cluster-auth
                   key: REDIS_PASSWORD
             - name: TASK_SERVICE_URL
               value: "http://task-service"

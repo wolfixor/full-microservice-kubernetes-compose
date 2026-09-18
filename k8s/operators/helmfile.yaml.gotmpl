@@ -141,3 +141,12 @@ releases:
   version: {{ .Values.versions.strimzi | quote }}
   values:
   - values/strimzi.yaml
+
+- name: redis-operator
+  namespace: redis-operator
+  createNamespace: true
+  installed: {{ .Values.operators.enabled }}
+  chart: oci://ghcr.io/ot-container-kit/charts/redis-operator
+  version: {{ .Values.versions.redisOperator | quote }}
+  values:
+  - values/redis-operator.yaml

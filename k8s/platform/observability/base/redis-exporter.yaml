@@ -19,7 +19,7 @@ spec:
       - name: redis-exporter
         image: docker.arvancloud.ir/oliver006/redis_exporter:v1.56.0
         args:
-        - "--redis.addr=redis://redis-cluster.task-api.svc.cluster.local:6379"
+        - "--redis.addr=redis://platform-redis-leader.task-api.svc.cluster.local:6379"
         - "--redis.password=$(REDIS_PASSWORD)"
         - "--is-cluster=true"
         - "--check-keys=*"

@@ -8,3 +8,4 @@ versions:
   trivyOperator: 0.36.0
   kubePrometheusStack: 91.4.1
   strimzi: 1.2.0
+  redisOperator: 0.26.1

@@ -1,0 +1,30 @@
+redisOperator:
+  webhook: true
+  imagePullPolicy: IfNotPresent
+  watchNamespace: task-api
+  podLabels:
+    app: redis-operator
+    version: "0.26.0"
+    team: platform
+
+replicas: 1
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 300m
+    memory: 256Mi
+
+rbac:
+  enabled: true
+  scope: cluster
+
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+    - ALL
+  runAsNonRoot: true
+  runAsUser: 1000
