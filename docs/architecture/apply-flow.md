@@ -84,8 +84,8 @@ Debug:
 ```bash
 kubectl get secretstore,externalsecret -n task-api
 kubectl describe externalsecret task-service-db -n task-api
-kubectl describe externalsecret task-service-redis -n task-api
-kubectl get secret task-service-db-from-vault task-service-redis-from-vault -n task-api
+kubectl describe externalsecret redis-cluster-auth -n task-api
+kubectl get secret task-service-db-from-vault redis-cluster-auth -n task-api
 kubectl logs -n external-secrets deploy/external-secrets --tail=120
 ```
 
@@ -132,6 +132,27 @@ kubectl get kafka,kafkatopic -n kafka
 kubectl get pods -n kafka
 kubectl describe kafka platform-kafka -n kafka
 kubectl describe kafkatopic task.created -n kafka
+```
+
+## Redis Operator
+
+```text
+Helmfile apply
+  -> installs Redis Operator and RedisCluster CRD
+
+Git push
+  -> Argo CD applies RedisCluster/platform-redis
+  -> Redis Operator creates Services, StatefulSets, PVCs, and PDBs
+  -> applications connect through platform-redis-leader
+```
+
+Debug:
+
+```bash
+kubectl get pods -n redis-operator
+kubectl get rediscluster platform-redis -n task-api -o wide
+kubectl get pods -n task-api -l redis_setup_type=cluster
+kubectl logs deployment/redis-operator -n redis-operator --tail=200
 ```
 
 ## NetworkPolicy

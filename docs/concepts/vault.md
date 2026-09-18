@@ -45,7 +45,7 @@ Vault stores:
     username=<task database user>
     password=<task database password>
 
-  secret/task-service/redis
+  secret/platform/shared
     REDIS_PASSWORD=<redis password>
 
   secret/kibana/encryption-keys
@@ -180,15 +180,16 @@ For task-service we now use Vault as the source of truth:
 
 ```text
 Vault secret/task-service/db
-Vault secret/task-service/redis
   -> ESO ExternalSecret
-  -> Kubernetes Secrets:
-       task-service-db-from-vault
-       task-service-redis-from-vault
+  -> Kubernetes Secret task-service-db-from-vault
   -> task-service env vars:
        POSTGRES_USER
        POSTGRES_PASSWORD
-       REDIS_PASSWORD
+
+Vault secret/platform/shared.REDIS_PASSWORD
+  -> ESO ExternalSecret redis-cluster-auth
+  -> Kubernetes Secret redis-cluster-auth
+  -> Redis Operator and application env var REDIS_PASSWORD
 ```
 
 The app does not know Vault exists.

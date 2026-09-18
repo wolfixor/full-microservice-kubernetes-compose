@@ -23,7 +23,7 @@ flowchart TB
     Activity --> ActivityDB[(PostgreSQL)]
     Notification --> NotificationDB[(PostgreSQL)]
 
-    User & Task & Comment --> Redis[(Redis Cluster)]
+    User & Task & Comment & Search --> Redis[(Redis Operator / Redis Cluster)]
     User & Task & Comment --> Kafka[(Strimzi Kafka)]
     Kafka --> Search & Activity & Notification
     Search --> Elasticsearch[(Elasticsearch)]
@@ -117,7 +117,7 @@ blindly applying the whole repository.
 | user-service | `/users` | PostgreSQL, Redis, Kafka producer |
 | task-service | `/tasks` | CloudNativePG, PgBouncer, Redis, Kafka producer |
 | comment-service | `/comments` | PostgreSQL, Redis, Kafka producer |
-| search-service | `/search` | Kafka consumer, Elasticsearch |
+| search-service | `/search` | Redis, Kafka consumer, Elasticsearch |
 | activity-service | `/activities` | Kafka consumer, PostgreSQL |
 | notification-service | `/notifications` | Kafka consumer, PostgreSQL |
 

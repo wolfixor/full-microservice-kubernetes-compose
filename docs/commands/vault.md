@@ -81,7 +81,10 @@ export VAULT_TOKEN="$VAULT_DEV_TOKEN"
 vault secrets enable -path=secret kv-v2 || true
 vault kv put secret/task-api/config username="$TASK_API_USERNAME" password="$TASK_API_PASSWORD"
 vault kv put secret/task-service/db username="$TASK_DB_USERNAME" password="$TASK_DB_PASSWORD"
-vault kv put secret/task-service/redis REDIS_PASSWORD="$TASK_REDIS_PASSWORD"
+vault kv put secret/platform/shared \
+  POSTGRES_USER="$PLATFORM_POSTGRES_USER" \
+  POSTGRES_PASSWORD="$PLATFORM_POSTGRES_PASSWORD" \
+  REDIS_PASSWORD="$REDIS_PASSWORD"
 vault kv put secret/kibana/encryption-keys \
   securityEncryptionKey="$KIBANA_SECURITY_ENCRYPTION_KEY" \
   savedObjectsEncryptionKey="$KIBANA_SAVED_OBJECTS_ENCRYPTION_KEY" \
@@ -95,7 +98,7 @@ Meaning:
 ```text
 secret/task-api/config exists in Vault
 secret/task-service/db exists in Vault
-secret/task-service/redis exists in Vault
+secret/platform/shared exists in Vault
 secret/kibana/encryption-keys exists in Vault
 policy task-api-read can read those secret paths
 ```
@@ -174,7 +177,7 @@ Check:
 ```bash
 kubectl get secretstore,externalsecret -n task-api
 kubectl get secret task-api-config -n task-api
-kubectl get secret task-service-db-from-vault task-service-redis-from-vault -n task-api
+kubectl get secret task-service-db-from-vault redis-cluster-auth -n task-api
 kubectl get secret kibana-encryption-keys -n task-api
 ```
 
@@ -185,7 +188,7 @@ SecretStore vault-task-api     READY=True
 ExternalSecret task-api-config READY=True SecretSynced
 Secret task-api-config         exists
 ExternalSecret task-service-db READY=True SecretSynced
-ExternalSecret task-service-redis READY=True SecretSynced
+ExternalSecret redis-cluster-auth READY=True SecretSynced
 ExternalSecret kibana-encryption-keys READY=True SecretSynced
 ```
 
@@ -228,7 +231,7 @@ vault auth list
 vault read auth/kubernetes/role/task-api
 vault kv get secret/task-api/config
 vault kv get secret/task-service/db
-vault kv get secret/task-service/redis
+vault kv get secret/platform/shared
 vault kv get secret/kibana/encryption-keys
 '
 ```
@@ -240,7 +243,7 @@ kubectl get pods -n external-secrets
 kubectl describe secretstore vault-task-api -n task-api
 kubectl describe externalsecret task-api-config -n task-api
 kubectl describe externalsecret task-service-db -n task-api
-kubectl describe externalsecret task-service-redis -n task-api
+kubectl describe externalsecret redis-cluster-auth -n task-api
 kubectl describe externalsecret kibana-encryption-keys -n task-api
 ```
 

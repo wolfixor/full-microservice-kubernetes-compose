@@ -1,207 +1,81 @@
-# Redis Cluster Flow
+# Redis Cluster
 
-## Mental Model
-
-The old Redis setup was one pod:
+## Current Design
 
 ```text
-redis Deployment
-  -> one Redis pod
-  -> emptyDir storage
+Helmfile
+  -> installs Redis Operator and RedisCluster CRD
+
+Vault platform/shared.REDIS_PASSWORD
+  -> External Secrets Operator
+  -> Kubernetes Secret redis-cluster-auth
+
+Git -> Argo CD platform-cache
+  -> RedisCluster/platform-redis
+  -> Redis Operator
+  -> 3 leader pods + 3 follower pods
+  -> Services + PVCs + PodDisruptionBudgets
 ```
 
-The new Kubernetes setup is Redis Cluster:
+The operator owns the generated StatefulSets. We edit the `RedisCluster` CR, not
+the generated StatefulSets.
+
+## Data Flow
+
+Redis Cluster divides 16,384 hash slots among three leaders. Each leader has one
+follower containing a copy of that shard.
 
 ```text
-redis-cluster StatefulSet
-  -> 6 Redis pods
-  -> 3 masters
-  -> 3 replicas
-  -> persistent PVC per pod
+application
+  -> platform-redis-leader:6379
+  -> cluster-aware client discovers all Redis nodes
+  -> key hash selects a slot
+  -> request reaches the leader that owns the slot
 ```
 
-## Why Redis Cluster
+All services use Redis database `0`; key prefixes such as `task:` and `user:`
+provide logical separation.
 
-Redis Cluster gives:
-
-```text
-sharding
-automatic failover
-persistent storage
-```
-
-Keys are split across hash slots.
-
-If a master fails, its replica can be promoted.
-
-## Cluster Shape
-
-Our current cluster has 6 pods:
+## Failure Flow
 
 ```text
-3 masters
-3 replicas
-```
-
-Redis Cluster has 16384 hash slots.
-
-With 3 masters, slots are split like this:
-
-```text
-master 1 -> slots 0-5460
-master 2 -> slots 5461-10922
-master 3 -> slots 10923-16383
-```
-
-When the app writes a key:
-
-```text
-task:123
-```
-
-Redis calculates the hash slot and sends the key to the correct master.
-
-## Failover Flow
-
-Each master has one replica.
-
-```text
-master fails
-  -> cluster detects missing heartbeats
-  -> replica is promoted
-  -> replica becomes the new master
+leader fails
+  -> Redis members detect lost heartbeats
+  -> its follower is promoted
+  -> Redis Operator reconciles the Kubernetes resources
   -> cluster-aware clients refresh topology
-  -> traffic continues
 ```
 
-With 3 masters, this setup can usually tolerate 1 master failure if that master has a healthy replica.
+The current PodDisruptionBudgets keep at least two leaders and two followers
+available during voluntary disruption. They do not protect against simultaneous
+node, storage, or zone loss.
 
-## Kubernetes IP Change Problem
+## Local Versus Production
 
-StatefulSet pod names are stable:
+This lab is production-shaped but not production-sized:
+
+| Area | Local lab | Production |
+|---|---|---|
+| Storage | `local-path`, tied to one node | replicated CSI storage across failure domains |
+| Operator | 2 replicas | 2+ replicas with tested upgrades and alerts |
+| Redis | 3 leaders, 3 followers | size from load tests and memory growth |
+| Secrets | Vault dev mode | HA Vault with persistent storage and recovery keys |
+| Recovery | pod/failover drills | tested Redis backup and disaster recovery |
+
+Capacity cannot be estimated from user count alone. Measure operations per
+second, value size, memory, hit rate, latency, connection count, and failover
+behavior.
+
+## Ownership Rule
 
 ```text
-redis-cluster-0
-redis-cluster-1
+operator lifecycle  -> k8s/operators/helmfile.yaml.gotmpl
+operator values     -> k8s/operators/values/redis-operator.yaml
+Redis desired state -> k8s/platform/cache/base/platform-redis.yaml
+credentials         -> k8s/platform/secrets/base/platform-secrets.yaml
+traffic rules       -> k8s/platform/networking/base
+metrics             -> k8s/platform/observability/base
 ```
 
-But pod IPs can change after restart:
-
-```text
-old IP -> 10.244.1.46
-new IP -> 10.244.1.30
-```
-
-Redis stores cluster node addresses in `nodes.conf`.
-
-If `nodes.conf` keeps old pod IPs, Kubernetes pods can be `Running` but Redis Cluster can still fail:
-
-```text
-cluster_state:fail
-cluster_slots_pfail:...
-```
-
-Our manifest fixes this on startup:
-
-```text
-read current POD_IP
-update this pod's own line in /data/nodes.conf
-start Redis with --cluster-announce-ip POD_IP
-also announce stable pod hostname
-```
-
-This is one reason a Redis operator is better in production: it handles this kind of cluster repair logic for us.
-
-## Capacity
-
-There is no fixed number like "10k users" or "1M users".
-
-Capacity depends on:
-
-```text
-Redis ops/sec
-cache hit rate
-key size
-value size
-TTL
-CPU
-memory
-network
-connection count
-read/write ratio
-```
-
-Our current pod resources are small:
-
-```text
-request: 256Mi memory, 100m CPU
-limit:   512Mi memory, 500m CPU
-```
-
-So this is production-shaped, not production-sized.
-
-Production sizing should come from load testing.
-
-## Important App Change
-
-Redis Cluster only supports database `0`.
-
-So service isolation is not done with DB numbers anymore.
-
-Old:
-
-```text
-user -> db0
-task -> db1
-comment -> db2
-search -> db3
-```
-
-New:
-
-```text
-all services -> db0
-isolation -> key prefixes
-```
-
-Example:
-
-```text
-user:...
-task:...
-comment:...
-search:...
-```
-
-## Apply Flow
-
-```bash
-kubectl apply -k k8s/platform/cache/base
-kubectl rollout status statefulset/redis-cluster -n task-api --timeout=300s
-kubectl wait --for=condition=complete job/redis-cluster-init -n task-api --timeout=300s
-```
-
-Then update services to use Redis Cluster:
-
-```bash
-kubectl apply -f k8s/apps/user-service/base/workload.yaml
-kubectl apply -f k8s/apps/task-service/base/rollout.yaml
-kubectl apply -f k8s/apps/comment-service/base/workload.yaml
-kubectl apply -f k8s/apps/search-service/base/workload.yaml
-```
-
-## Check
-
-```bash
-kubectl exec -n task-api redis-cluster-0 -- \
-  redis-cli -a ${REDIS_PASSWORD} cluster info
-
-kubectl exec -n task-api redis-cluster-0 -- \
-  redis-cli -a ${REDIS_PASSWORD} cluster nodes
-```
-
-## Current Note
-
-Keep the old `redis-service` until all apps are confirmed healthy.
-
-After cutover, it can be removed later.
+Argo CD self-heal restores Git's version if somebody changes an owned resource
+directly. Make durable changes in Git, then let Argo CD reconcile them.

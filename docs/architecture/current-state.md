@@ -109,12 +109,14 @@ Current task-service secret flow:
 
 ```text
 Vault secret/task-service/db
-Vault secret/task-service/redis
   -> ExternalSecret
-  -> Kubernetes Secrets:
-       task-service-db-from-vault
-       task-service-redis-from-vault
-  -> task-service env vars
+  -> Kubernetes Secret task-service-db-from-vault
+  -> task-service database env vars
+
+Vault secret/platform/shared.REDIS_PASSWORD
+  -> ExternalSecret redis-cluster-auth
+  -> Kubernetes Secret redis-cluster-auth
+  -> RedisCluster and application Redis env vars
 ```
 
 Current Kibana secret flow:
@@ -144,8 +146,9 @@ Kafka
   -> consumers: search/activity services
 
 Redis
-  -> local Redis Cluster lab
-  -> future production direction: Redis operator
+  -> Redis Operator installed by Helmfile
+  -> RedisCluster CR managed by Argo CD
+  -> 3 leaders and 3 followers with persistent PVCs
 
 Elasticsearch/Kibana
   -> ECK Operator

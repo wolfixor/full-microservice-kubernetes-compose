@@ -84,7 +84,7 @@ Vault must already be configured with:
 ```text
 secret/task-api/config
 secret/task-service/db
-secret/task-service/redis
+secret/platform/shared
 secret/kibana/encryption-keys
 auth/kubernetes/role/task-api
 policy task-api-read
@@ -104,10 +104,10 @@ Check:
 kubectl get secretstore,externalsecret -n task-api
 kubectl describe externalsecret task-api-config -n task-api
 kubectl describe externalsecret task-service-db -n task-api
-kubectl describe externalsecret task-service-redis -n task-api
+kubectl describe externalsecret redis-cluster-auth -n task-api
 kubectl describe externalsecret kibana-encryption-keys -n task-api
 kubectl get secret task-api-config -n task-api
-kubectl get secret task-service-db-from-vault task-service-redis-from-vault -n task-api
+kubectl get secret task-service-db-from-vault redis-cluster-auth -n task-api
 kubectl get secret kibana-encryption-keys -n task-api
 ```
 
@@ -165,7 +165,7 @@ export VAULT_TOKEN="$VAULT_DEV_TOKEN"
 vault read auth/kubernetes/role/task-api
 vault kv get secret/task-api/config
 vault kv get secret/task-service/db
-vault kv get secret/task-service/redis
+vault kv get secret/platform/shared
 vault kv get secret/kibana/encryption-keys
 '
 ```
