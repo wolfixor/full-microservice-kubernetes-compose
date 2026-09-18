@@ -18,6 +18,17 @@ docker tag docker.arvancloud.ir/hashicorp/vault:1.17.6 hashicorp/vault:1.17.6
 
 This is dev mode only.
 
+After the local Vault pod restarts, recover its in-memory configuration and
+secret paths with:
+
+```powershell
+.\k8s\environments\local\platform\vault\restore-dev-vault.ps1
+```
+
+The recovery source is the retained Kubernetes Secrets created by External
+Secrets. This circular recovery is acceptable only for this local lab. A
+production Vault uses persistent HA storage and independent backups.
+
 ## 2. Open Vault UI
 
 ```bash
