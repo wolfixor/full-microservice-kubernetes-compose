@@ -1,0 +1,49 @@
+{
+  "Servers": {
+    "1": {
+      "Name": "task-service-db",
+      "Group": "Docker Compose",
+      "Host": "task-service-db",
+      "Port": 5432,
+      "MaintenanceDB": "task_db",
+      "Username": "postgres",
+      "SSLMode": "prefer"
+    },
+    "2": {
+      "Name": "user-service-db",
+      "Group": "Docker Compose",
+      "Host": "user-service-db",
+      "Port": 5432,
+      "MaintenanceDB": "user_db",
+      "Username": "postgres",
+      "SSLMode": "prefer"
+    },
+    "3": {
+      "Name": "comment-service-db",
+      "Group": "Docker Compose",
+      "Host": "comment-service-db",
+      "Port": 5432,
+      "MaintenanceDB": "comment_db",
+      "Username": "postgres",
+      "SSLMode": "prefer"
+    },
+    "4": {
+      "Name": "activity-service-db",
+      "Group": "Docker Compose",
+      "Host": "activity-service-db",
+      "Port": 5432,
+      "MaintenanceDB": "activity_db",
+      "Username": "postgres",
+      "SSLMode": "prefer"
+    },
+    "5": {
+      "Name": "notification-service-db",
+      "Group": "Docker Compose",
+      "Host": "notification-service-db",
+      "Port": 5432,
+      "MaintenanceDB": "notification_db",
+      "Username": "postgres",
+      "SSLMode": "prefer"
+    }
+  }
+}

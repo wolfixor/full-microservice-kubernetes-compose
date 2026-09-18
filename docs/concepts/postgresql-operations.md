@@ -27,7 +27,7 @@ Create task:
 
 ```text
 POST /tasks
-  -> task-service/app/api/endpoints/tasks.py
+  -> services/task-service/app/api/endpoints/tasks.py
   -> create_task()
   -> CachedTaskRepository.create()
   -> SQLAlchemy adds Task model

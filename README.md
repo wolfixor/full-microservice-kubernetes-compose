@@ -1,320 +1,138 @@
-# Production-Style Microservices Platform on Kubernetes
+# Microservices Kubernetes Platform
 
-A production-style learning platform for microservices, Kubernetes, event-driven architecture, and observability.
-
-The project now includes independent FastAPI services, database-per-service isolation, Kong Gateway, Redis Cluster caching, Elasticsearch search, Strimzi Kafka, Kafka consumers, operator-managed Prometheus, Grafana dashboards, Fluent Bit logging, Elasticsearch log storage, and Kibana.
+A production-style learning platform for operating FastAPI microservices on
+Kubernetes. Git is the desired-state source, Argo CD reconciles platform and
+application resources, and operators own stateful systems.
 
 ## Architecture
 
 ```mermaid
 flowchart TB
-    Internet((Internet)) --> Kong[Kong API Gateway]
+    Client --> Kong[Kong Gateway]
+    Kong --> User[User Service]
+    Kong --> Task[Task Service]
+    Kong --> Comment[Comment Service]
+    Kong --> Search[Search Service]
+    Kong --> Activity[Activity Service]
+    Kong --> Notification[Notification Service]
 
-    Kong --> US[User Service]
-    Kong --> TS[Task Service]
-    Kong --> CS[Comment Service]
-    Kong --> SS[Search Service]
-    Kong --> AS[Activity Service]
-    Kong --> NS[Notification Service]
+    User --> UserDB[(PostgreSQL)]
+    Task --> Pooler[PgBouncer]
+    Pooler --> CNPG[(CloudNativePG)]
+    Comment --> CommentDB[(PostgreSQL)]
+    Activity --> ActivityDB[(PostgreSQL)]
+    Notification --> NotificationDB[(PostgreSQL)]
 
-    US --> UDB[(PostgreSQL user_db)]
-    TS --> Pooler[PgBouncer task-db-pooler-rw]
-    Pooler --> TDB[(CloudNativePG task_db)]
-    CS --> CDB[(PostgreSQL comment_db)]
-    AS --> ADB[(PostgreSQL activity_db)]
-    NS --> NDB[(PostgreSQL notification_db)]
-    SS --> ES[(Elasticsearch search index)]
+    User & Task & Comment --> Redis[(Redis Cluster)]
+    User & Task & Comment --> Kafka[(Strimzi Kafka)]
+    Kafka --> Search & Activity & Notification
+    Search --> Elasticsearch[(Elasticsearch)]
 
-    US -.->|cache| Redis[(Redis Cluster)]
-    TS -.->|cache| Redis
-    CS -.->|cache| Redis
-
-    US -.->|user.created, user.updated| Kafka[(Kafka Event Backbone)]
-    TS -.->|task.created, task.updated, task.deleted| Kafka
-    CS -.->|comment.created, comment.deleted| Kafka
-
-    Kafka -.->|task and comment events| SS
-    Kafka -.->|all business events| AS
-    Kafka -.->|selected notification events| NS
-
-    subgraph Metrics
-        PO[Prometheus Operator] --> PCR[Prometheus CR]
-        SM[ServiceMonitor CRs] --> PO
-        PCR --> Prom[Prometheus StatefulSet]
-        Prom --> Grafana[Grafana]
-        Apps[Service /metrics endpoints] --> SM
-        Exporters[Node / Redis / PostgreSQL / Elasticsearch exporters] --> SM
-    end
-
-    subgraph ProgressiveDelivery
-        AR[Argo Rollouts Controller] --> TRO[Task Service Rollout]
-        TRO --> ANA[Prometheus AnalysisTemplate]
-        ANA --> Prom
-        TRO --> TS
-    end
-
-    subgraph Logs
-        Kong -.->|stdout| FB[Fluent Bit]
-        US -.->|stdout JSON| FB
-        TS -.->|stdout JSON| FB
-        CS -.->|stdout JSON| FB
-        SS -.->|stdout JSON| FB
-        AS -.->|stdout JSON| FB
-        NS -.->|stdout JSON| FB
-        KLR[Kong Log Receiver] -.->|stdout JSON| FB
-        Kong -.->|http-log plugin| KLR
-        FB --> LogES[(Elasticsearch log store)]
-        LogES --> Kibana[Kibana]
-    end
+    Apps[Applications and exporters] --> Prometheus
+    Prometheus --> Grafana
+    Apps --> FluentBit[Fluent Bit]
+    FluentBit --> Elasticsearch
+    Elasticsearch --> Kibana
 ```
 
-## Main Flows
-
-**HTTP request flow**
+## Delivery Flow
 
 ```text
-Client
-  -> Kong
-  -> service
-  -> service database/cache/search backend
+Git commit
+  -> Argo CD root application
+  -> child applications
+  -> Kustomize renders desired resources
+  -> Kubernetes admission and Kyverno validation
+  -> operators reconcile custom resources
+  -> Argo Rollouts releases task-service progressively
+  -> Prometheus, logs, and Kubernetes events verify health
 ```
 
-**Kafka event flow**
+Argo CD owns long-running platform and application resources. Files under an
+`operations/` directory are deliberate one-shot actions and are never
+autosynced.
+
+## Repository Layout
 
 ```text
-user/task/comment service
-  -> writes to its own PostgreSQL
-  -> publishes event to Kafka
-  -> search-service indexes searchable events
-  -> activity-service stores audit history
-  -> notification-service stores notification records
+services/<service>/                application source, tests, image definition
+deploy/compose/config/             Docker Compose component configuration
+k8s/apps/<service>/base/           deployable application resources
+k8s/apps/<service>/operations/     migrations, backup, restore, and drills
+k8s/platform/<component>/base/     shared platform desired state
+k8s/environments/local/            local composition and local-only tooling
+k8s/operators/                     pinned operator installation with Helmfile
+k8s/operators/raw/                 offline recovery bundles only
+k8s/argocd/                        AppProject and app-of-apps definitions
+k8s/security-drills/               manual validation resources, never autosynced
+docs/concepts/                     short mental models
+docs/commands/                     deployment, verification, and recovery commands
 ```
 
-**Metrics flow**
+## Ownership Rules
 
-```text
-ServiceMonitor CRs
-  -> Prometheus Operator
-  -> generated scrape config
-  -> Prometheus StatefulSet
-  -> Grafana
+- Install controllers and CRDs with `k8s/operators/helmfile.yaml.gotmpl`.
+- Reconcile application and platform desired state through Argo CD.
+- Use Kustomize as the render boundary for every Argo CD application.
+- Keep local-only dependencies under `k8s/environments/local`.
+- Never store live credentials in Git; Vault and External Secrets create them.
+- Never apply an offline raw operator bundle beside the equivalent Helm release.
+- Never place migration, restore, load-test, or security-drill resources in an
+  autosynced Kustomization.
+
+## Bootstrap
+
+Render before changing a cluster:
+
+```bash
+kubectl kustomize k8s/argocd
+kubectl kustomize k8s/environments/local/apps
+kubectl kustomize k8s/platform/observability/base
+helmfile -f k8s/operators/helmfile.yaml.gotmpl -e prod template
 ```
 
-**Canary release flow**
+Install the pinned operators on a new production cluster:
 
-```text
-new task-service image
-  -> Argo Rollouts
-  -> 10%, 25%, 50%, 100% canary steps
-  -> Prometheus checks error rate and latency
-  -> promote or rollback
+```bash
+helmfile -f k8s/operators/helmfile.yaml.gotmpl -e prod diff
+helmfile -f k8s/operators/helmfile.yaml.gotmpl -e prod apply
 ```
 
-**Log flow**
+Bootstrap GitOps after Argo CD is available:
 
-```text
-container stdout/stderr
-  -> Fluent Bit
-  -> Elasticsearch
-  -> Kibana
+```bash
+kubectl apply -f k8s/argocd/projects/task-api-platform.yaml
+kubectl apply -f k8s/argocd/applications/platform-root.yaml
+kubectl get applications -n argocd
 ```
+
+The local cluster has additional Vault and backup lab prerequisites. Follow
+[Start Here](docs/START-HERE.md) and the component command docs instead of
+blindly applying the whole repository.
 
 ## Services
 
-| Service | Public path | Responsibility | Data store |
-|---|---|---|---|
-| user-service | `/users` | User accounts and profiles | PostgreSQL + Redis |
-| task-service | `/tasks` | Task CRUD and task events | PostgreSQL + Redis |
-| comment-service | `/comments` | Comment CRUD and comment events | PostgreSQL + Redis |
-| search-service | `/search` | Full-text search from Kafka events | Elasticsearch |
-| activity-service | `/activities` | Immutable audit log of Kafka events | PostgreSQL |
-| notification-service | `/notifications` | Stored notifications from Kafka events | PostgreSQL |
+| Service | Kong path | Data path |
+|---|---|---|
+| user-service | `/users` | PostgreSQL, Redis, Kafka producer |
+| task-service | `/tasks` | CloudNativePG, PgBouncer, Redis, Kafka producer |
+| comment-service | `/comments` | PostgreSQL, Redis, Kafka producer |
+| search-service | `/search` | Kafka consumer, Elasticsearch |
+| activity-service | `/activities` | Kafka consumer, PostgreSQL |
+| notification-service | `/notifications` | Kafka consumer, PostgreSQL |
 
-## Platform Components
-
-| Component | Role |
-|---|---|
-| Kong Gateway | Public entry point and path routing |
-| Redis Cluster | Sharded cache-aside layer for core CRUD services |
-| Kafka / Strimzi | Persistent event backbone |
-| CloudNativePG | Operator-managed PostgreSQL for task-service |
-| PgBouncer | Database connection pooling for task-service |
-| Elasticsearch | Search index and log storage |
-| Fluent Bit | Kubernetes log collection |
-| Kibana | Log exploration |
-| Prometheus Operator | Manages Prometheus through CRDs |
-| Prometheus | Metrics storage and query engine |
-| ServiceMonitor | Declarative scrape target definition |
-| Grafana | Metrics dashboards |
-| Argo Rollouts | Canary releases and automated rollback |
-| AnalysisTemplate | Prometheus-based rollout checks |
-
-## What This Project Demonstrates
-
-- Database-per-service isolation
-- Kubernetes Deployments, StatefulSets, Services, Secrets, PVCs, and Jobs
-- Operator-managed PostgreSQL with CloudNativePG
-- PgBouncer connection pooling for PostgreSQL
-- Kong API Gateway routing and plugins
-- Redis Cluster cache-aside pattern with key-prefix isolation
-- Elasticsearch-backed search
-- Strimzi-managed Kafka with replicated topics
-- Async Kafka producers with retries and DLQ topics
-- Multiple independent Kafka consumers for the same events
-- Operator-managed Prometheus with `Prometheus` and `ServiceMonitor` CRDs
-- Canary deployment with Argo Rollouts and Prometheus analysis
-- Centralized logging with Fluent Bit, Elasticsearch, and Kibana
-- Docker Compose parity for local learning
-
-## Kubernetes Deploy Flow
-
-### 1. Core Namespace And Shared Infra
+## Verification
 
 ```bash
-kubectl apply -f k8s/platform/secrets/base/namespace.yaml
-kubectl apply -k k8s/platform/cache/base
-kubectl rollout status statefulset/redis-cluster -n task-api --timeout=300s
-kubectl wait --for=condition=complete job/redis-cluster-init -n task-api --timeout=300s
-kubectl apply -k k8s/platform/logging/base
-```
-
-### 2. Kafka
-
-```bash
-kubectl apply -f k8s/platform/messaging/base/namespace.yaml
-kubectl create -f https://strimzi.io/install/latest?namespace=kafka -n kafka
-kubectl wait deployment/strimzi-cluster-operator -n kafka --for=condition=Available --timeout=300s
-kubectl apply -f k8s/platform/messaging/base/kafka-cluster.yaml
-kubectl apply -f k8s/platform/messaging/base/topics.yaml
-```
-
-Production operation checks:
-
-```bash
+kubectl get applications -n argocd
+kubectl get pods -n task-api
 kubectl get kafka -n kafka
-kubectl get kafkatopic -n kafka
-kubectl exec -n kafka -it platform-kafka-brokers-0 -- \
-  /opt/kafka/bin/kafka-topics.sh \
-  --bootstrap-server platform-kafka-kafka-bootstrap:9092 \
-  --describe
-kubectl exec -n kafka -it platform-kafka-brokers-0 -- \
-  /opt/kafka/bin/kafka-consumer-groups.sh \
-  --bootstrap-server platform-kafka-kafka-bootstrap:9092 \
-  --describe --all-groups
+kubectl get cluster,pooler -n task-api
+kubectl get prometheus,alertmanager -n monitoring
+kubectl get externalsecret,secretstore -n task-api
 ```
 
-### 3. CloudNativePG For Task Database
-
-```bash
-kubectl apply --server-side -f https://raw.githubusercontent.com/cloudnative-pg/cloudnative-pg/release-1.30/releases/cnpg-1.30.0.yaml
-kubectl wait deployment/cnpg-controller-manager -n cnpg-system --for=condition=Available --timeout=300s
-
-kubectl apply -f k8s/platform/data/task-db/base/cluster.yaml
-kubectl wait cluster/task-db -n task-api --for=condition=Ready --timeout=600s
-kubectl apply -f k8s/platform/data/task-db/base/pooler.yaml
-```
-
-### 4. Other Databases
-
-```bash
-kubectl apply -f k8s/apps/user-service/base/database.yaml
-kubectl apply -f k8s/apps/comment-service/base/database.yaml
-kubectl apply -f k8s/apps/activity-service/base/database.yaml
-kubectl apply -f k8s/apps/notification-service/base/database.yaml
-```
-
-Do not apply `k8s/examples/task-service/postgres-statefulset.yaml` when using CloudNativePG for `task-service`.
-
-### 5. Migrations
-
-```bash
-kubectl apply -f k8s/apps/user-service/operations/migration-job.yaml
-kubectl apply -f k8s/apps/task-service/operations/migration-job.yaml
-kubectl apply -f k8s/apps/comment-service/operations/migration-job.yaml
-kubectl apply -f k8s/apps/activity-service/operations/migration-job.yaml
-kubectl apply -f k8s/apps/notification-service/operations/migration-job.yaml
-
-kubectl wait --for=condition=complete job/user-service-migrations -n task-api --timeout=300s
-kubectl wait --for=condition=complete job/task-service-migrations -n task-api --timeout=300s
-kubectl wait --for=condition=complete job/comment-service-migrations -n task-api --timeout=300s
-kubectl wait --for=condition=complete job/activity-service-migrations -n task-api --timeout=300s
-kubectl wait --for=condition=complete job/notification-service-migrations -n task-api --timeout=300s
-```
-
-### 6. Services And Gateway
-
-```bash
-kubectl apply -f k8s/apps/user-service/base/workload.yaml
-kubectl apply -k k8s/apps/task-service/base
-kubectl apply -f k8s/apps/comment-service/base/workload.yaml
-kubectl apply -f k8s/apps/search-service/base/workload.yaml
-kubectl apply -f k8s/apps/activity-service/base/workload.yaml
-kubectl apply -f k8s/apps/notification-service/base/workload.yaml
-
-kubectl apply -k k8s/apps/kong/base
-```
-
-### 7. Operator-Managed Prometheus
-
-```bash
-kubectl apply -f k8s/platform/observability/base/namespace.yaml
-```
-
-Install pinned Prometheus Operator `v0.93.0`:
-
-```bash
-OPERATOR_VERSION=v0.93.0
-TMPDIR=$(mktemp -d)
-
-curl -sL "https://raw.githubusercontent.com/prometheus-operator/prometheus-operator/refs/tags/${OPERATOR_VERSION}/kustomization.yaml" > "${TMPDIR}/kustomization.yaml"
-curl -sL "https://raw.githubusercontent.com/prometheus-operator/prometheus-operator/refs/tags/${OPERATOR_VERSION}/bundle.yaml" > "${TMPDIR}/bundle.yaml"
-
-cd "${TMPDIR}"
-kustomize edit set namespace monitoring
-kubectl apply -k "${TMPDIR}"
-
-kubectl wait pod -n monitoring -l app.kubernetes.io/name=prometheus-operator --for=condition=Ready --timeout=300s
-```
-
-Apply platform monitoring:
-
-```bash
-kubectl apply -f k8s/platform/observability/base/prometheus-rbac.yaml
-kubectl apply -f k8s/platform/observability/base/postgres-exporter.yaml
-kubectl apply -f k8s/platform/observability/base/redis-exporter.yaml
-kubectl apply -f k8s/platform/observability/base/elasticsearch-exporter.yaml
-kubectl apply -f k8s/platform/observability/base/node-exporter.yaml
-kubectl apply -f k8s/platform/observability/base/kube-state-metrics.yaml
-kubectl apply -f k8s/platform/observability/base/service-monitors.yaml
-kubectl apply -f k8s/platform/observability/base/prometheus-rules.yaml
-kubectl apply -f k8s/platform/observability/base/prometheus-managed.yaml
-kubectl apply -f k8s/platform/observability/base/grafana-dashboards.yaml
-kubectl apply -f k8s/platform/observability/base/grafana-deployment.yaml
-```
-
-### 8. Argo Rollouts For Task Service
-
-```bash
-kubectl create namespace argo-rollouts
-kubectl apply -n argo-rollouts -f https://github.com/argoproj/argo-rollouts/releases/v1.9.0/download/install.yaml
-kubectl wait deployment/argo-rollouts -n argo-rollouts --for=condition=Available --timeout=300s
-
-kubectl apply -f k8s/apps/task-service/base/analysis-template.yaml
-kubectl delete deployment task-service -n task-api
-kubectl apply -f k8s/apps/task-service/base/rollout.yaml
-```
-
-### 9. Logging
-
-```bash
-kubectl apply -k k8s/platform/logging/base
-kubectl apply -k k8s/apps/kong/base
-kubectl rollout restart deployment/kong-gateway -n task-api
-```
-
-## Testing
-
-Through Kong:
+Smoke-test through Kong:
 
 ```bash
 curl http://localhost:8888/users/
@@ -325,80 +143,28 @@ curl "http://localhost:8888/activities/?event_type=task.created"
 curl "http://localhost:8888/notifications/?type=task_created"
 ```
 
-Kafka event test:
+## Local Compose
+
+Docker Compose remains a separate local development path:
 
 ```bash
-curl -X POST http://localhost:8888/tasks/ \
-  -H "Content-Type: application/json" \
-  -d '{"title":"Kafka test","description":"event test","user_id":"u1"}'
-
-curl "http://localhost:8888/activities/?event_type=task.created"
-curl "http://localhost:8888/notifications/?type=task_created"
-curl "http://localhost:8888/search/?q=Kafka"
-```
-
-## Useful Docs
-
-Start here:
-
-- [Start here](docs/START-HERE.md)
-- [Project docs](docs/README.md)
-
-Concept docs explain what is happening:
-
-- [Kafka stack](docs/concepts/kafka-stack.md)
-- [Kafka production operation](docs/concepts/kafka-production.md)
-- [Activity service](docs/concepts/activity-service.md)
-- [Notification service](docs/concepts/notification-service.md)
-- [CloudNativePG](docs/concepts/cloudnative-pg.md)
-- [PostgreSQL operations](docs/concepts/postgresql-operations.md)
-- [Redis Cluster](docs/concepts/redis-cluster.md)
-- [Prometheus stack](docs/concepts/prometheus-stack.md)
-- [Velero backup and restore](docs/concepts/velero.md)
-- [Observability debugging](docs/concepts/observability-debugging.md)
-- [Operator and CRD](docs/concepts/operator-crd.md)
-- [Argo Rollouts](docs/concepts/argo-rollouts.md)
-- [ELK stack](docs/concepts/elk-stack.md)
-
-Command docs explain what to run:
-
-- [Production IaC commands](docs/commands/production-iac.md)
-- [PostgreSQL commands](docs/commands/postgresql.md)
-- [Kafka tests](docs/commands/test-kafka.md)
-- [Production monitoring checklist](docs/commands/monitoring-checklist.md)
-- [Production checklist](docs/commands/production-checklist.md)
-
-## Docker Compose
-
-For local learning:
-
-```bash
+docker compose config --quiet
 docker compose up -d
 ```
 
-The Compose stack keeps local parity for services, databases, Redis, Kafka, Kong, Elasticsearch, Prometheus, Grafana, Kibana, and Fluent Bit.
+It is not the production deployment source and is not reconciled by Argo CD.
+Its component configuration lives under `deploy/compose/config`; Kubernetes
+configuration remains under `k8s` and does not reuse Compose files.
 
-Use Kong in Compose:
+## Documentation
 
-```bash
-curl http://localhost:8888/users/
-curl http://localhost:8888/tasks/
-curl http://localhost:8888/comments/
-curl http://localhost:8888/search/
-curl http://localhost:8888/activities/
-curl http://localhost:8888/notifications/
-```
-
-Swagger docs through Kong:
-
-```text
-http://localhost:8888/users/docs
-http://localhost:8888/tasks/docs
-http://localhost:8888/comments/docs
-http://localhost:8888/search/docs
-http://localhost:8888/activities/docs
-http://localhost:8888/notifications/docs
-```
+- [Start Here](docs/START-HERE.md)
+- [Current Architecture](docs/architecture/current-state.md)
+- [Apply and Reconciliation Flow](docs/architecture/apply-flow.md)
+- [CRD Ownership Map](docs/architecture/crd-map.md)
+- [Learning Roadmap](docs/roadmap.md)
+- [Concept Index](docs/concepts/README.md)
+- [Command and Runbook Index](docs/commands/README.md)
 
 ## Author
 

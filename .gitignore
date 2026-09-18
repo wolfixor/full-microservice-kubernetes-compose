@@ -5,8 +5,8 @@ __pycache__/
 
 # Python tooling
 .pytest_cache/
+pytest-cache-files-*/
 .mypy_cache/
-prompts.md
 bugs.md
 docs/superpowers/
 plans/
@@ -38,5 +38,6 @@ Thumbs.db
 interview-gitops-mini-project
 .tmp/
 .helm/
+.kilo/
 credentials-velero.local
 gnaf/

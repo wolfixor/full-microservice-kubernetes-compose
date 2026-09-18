@@ -13,16 +13,17 @@ CloudNativePG Operator
 
 So we do not manually create the task PostgreSQL `StatefulSet` anymore.
 
-## Old Manual Way
+## Replaced Manual Way
 
 ```text
-k8s/examples/task-service/postgres-statefulset.yaml
+standalone StatefulSet/task-service-db
   -> StatefulSet/task-service-db
   -> one PostgreSQL pod
   -> one PVC
 ```
 
-This is good for learning, but it is not a production database pattern.
+That historical manifest was removed to prevent accidental deployment beside
+CloudNativePG. Git history retains it for comparison.
 
 ## New Operator Way
 

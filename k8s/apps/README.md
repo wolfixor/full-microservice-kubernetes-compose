@@ -2,7 +2,7 @@
 
 Business application manifests belong here.
 
-Examples:
+Current applications:
 
 ```text
 user-service
@@ -11,22 +11,21 @@ comment-service
 search-service
 activity-service
 notification-service
-kong-gateway
+kong
+pgadmin
 ```
 
-Rule:
+Layout:
 
 ```text
-app manifests should be deployable per environment with clear values or overlays
+base/         long-running resources reconciled by Argo CD
+operations/   one-shot migrations, backups, restores, and drills
 ```
 
-Good future shape:
+The local environment composes application bases here:
 
 ```text
-apps/task-service/base
-apps/task-service/overlays/local
-apps/task-service/overlays/prod
+k8s/environments/local/apps/kustomization.yaml
 ```
 
-Do not migrate every service at once.
-Move one service, render/diff, sync, verify, then continue.
+Do not add files from `operations/` to an autosynced Kustomization.

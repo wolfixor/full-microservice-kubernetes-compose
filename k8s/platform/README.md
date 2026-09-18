@@ -23,5 +23,5 @@ Rule:
 platform resources are shared by multiple apps or control the cluster runtime
 ```
 
-Current repo still keeps most platform YAML in top-level `k8s/` folders.
-Prompt 34 migrates them here gradually.
+Every active platform component has a Kustomize entry point under this
+directory. Argo CD child Applications reference those entry points directly.

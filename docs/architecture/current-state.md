@@ -207,5 +207,5 @@ k8s/platform/*/base           shared long-running resources
 k8s/apps/*/base               long-running business workloads
 k8s/apps/*/operations         migrations, backups, and drills (manual)
 k8s/environments/local        local composition and local-only tools
-k8s/examples                  educational manifests, never autosynced
+k8s/security-drills           explicit manual tests, never autosynced
 ```

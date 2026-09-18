@@ -1,10 +1,8 @@
-version: "3.8"
-
 services:
   # ---------------- USER SERVICE ----------------
   user-service:
     build:
-      context: ./user-service
+      context: ./services/user-service
       dockerfile: Dockerfile
     image: registry.gitlab.shiveh.com/mapir/upstream/kibana:user-service
     container_name: mamad-user-service
@@ -64,7 +62,7 @@ services:
   # ---------------- TASK SERVICE ----------------
   task-service:
     build:
-      context: ./task-service
+      context: ./services/task-service
       dockerfile: Dockerfile
     image: registry.gitlab.shiveh.com/mapir/upstream/kibana:task-service
     container_name: mamad-task-service
@@ -124,7 +122,7 @@ services:
   # ---------------- COMMENT SERVICE ----------------
   comment-service:
     build:
-      context: ./comment-service
+      context: ./services/comment-service
       dockerfile: Dockerfile
     image: registry.gitlab.shiveh.com/mapir/upstream/kibana:comment-service
     container_name: mamad-comment-service
@@ -181,7 +179,7 @@ services:
   # ---------------- SEARCH SERVICE ----------------
   search-service:
     build:
-      context: ./search-service
+      context: ./services/search-service
       dockerfile: Dockerfile
     image: registry.gitlab.shiveh.com/mapir/upstream/kibana:search-service
     container_name: mamad-search-service
@@ -220,7 +218,7 @@ services:
   # ---------------- ACTIVITY SERVICE ----------------
   activity-service:
     build:
-      context: ./activity-service
+      context: ./services/activity-service
       dockerfile: Dockerfile
     image: registry.gitlab.shiveh.com/mapir/upstream/kibana:activity-service
     container_name: mamad-activity-service
@@ -272,7 +270,7 @@ services:
   # ---------------- NOTIFICATION SERVICE ----------------
   notification-service:
     build:
-      context: ./notification-service
+      context: ./services/notification-service
       dockerfile: Dockerfile
     image: registry.gitlab.shiveh.com/mapir/upstream/kibana:notification-service
     container_name: mamad-notification-service
@@ -335,7 +333,7 @@ services:
       KONG_ADMIN_ERROR_LOG: /dev/stderr
       KONG_ADMIN_LISTEN: 0.0.0.0:8001
     volumes:
-      - ./kong-gateway/compose/kong.yaml:/usr/local/kong/declarative/kong.yaml:ro
+      - ./deploy/compose/config/kong/kong.yaml:/usr/local/kong/declarative/kong.yaml:ro
     ports:
       - "8888:8000"
       - "8007:8001"
@@ -521,7 +519,7 @@ services:
     image: 185.120.221.119:8083/prom/prometheus:v2.48.0
     container_name: mamad-prometheus
     volumes:
-      - ./prometheus:/etc/prometheus
+      - ./deploy/compose/config/prometheus:/etc/prometheus
       - prometheus_data:/prometheus
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
@@ -612,14 +610,41 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
+  # ---------------- PGADMIN ----------------
+  pgadmin:
+    image: dpage/pgadmin4:8.14
+    container_name: mamad-pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@local.dev
+      PGADMIN_DEFAULT_PASSWORD: admin
+    volumes:
+      - ./deploy/compose/config/pgadmin/servers.json:/pgadmin4/servers.json:ro
+      - pgadmin_data:/var/lib/pgadmin
+    ports:
+      - "5050:80"
+    networks:
+      - wolfix-service-network
+    depends_on:
+      task-service-db:
+        condition: service_healthy
+      user-service-db:
+        condition: service_healthy
+      comment-service-db:
+        condition: service_healthy
+      activity-service-db:
+        condition: service_healthy
+      notification-service-db:
+        condition: service_healthy
+    restart: unless-stopped
+
   # ---------------- GRAFANA ----------------
   grafana:
     image: 185.120.221.119:8083/grafana/grafana:10.2.0
     container_name: mamad-grafana
     volumes:
-      - ./grafana/prometheus-datasource.yml:/etc/grafana/provisioning/datasources/prometheus-datasource.yml
-      - ./grafana/dashboard-provider.yml:/etc/grafana/provisioning/dashboards/dashboard-provider.yml
-      - ./grafana/dashboards:/var/lib/grafana/dashboards
+      - ./deploy/compose/config/grafana/prometheus-datasource.yml:/etc/grafana/provisioning/datasources/prometheus-datasource.yml
+      - ./deploy/compose/config/grafana/dashboard-provider.yml:/etc/grafana/provisioning/dashboards/dashboard-provider.yml
+      - ./deploy/compose/config/grafana/dashboards:/var/lib/grafana/dashboards
       - grafana_data:/var/lib/grafana
     environment:
       GF_SECURITY_ADMIN_USER: admin
@@ -640,7 +665,7 @@ services:
     image: 185.120.221.119:8083/kibana:8.11.0
     container_name: mamad-kibana
     volumes:
-      - ./conf/kibana:/usr/share/kibana/config
+      - ./deploy/compose/config/kibana:/usr/share/kibana/config
     ports:
       - "5601:5601"
     networks:
@@ -655,9 +680,9 @@ services:
     image: 185.120.221.119:8083/fluent/fluent-bit:3.0.7
     container_name: mamad-fluentbit
     volumes:
-      - ./conf/fluentbit/fluent-bit.conf:/fluent-bit/etc/fluent-bit.conf
-      - ./conf/fluentbit/parsers.conf:/fluent-bit/etc/parsers.conf
-      - ./conf/fluentbit/process.lua:/fluent-bit/etc/process.lua
+      - ./deploy/compose/config/fluent-bit/fluent-bit.conf:/fluent-bit/etc/fluent-bit.conf
+      - ./deploy/compose/config/fluent-bit/parsers.conf:/fluent-bit/etc/parsers.conf
+      - ./deploy/compose/config/fluent-bit/process.lua:/fluent-bit/etc/process.lua
       - /var/lib/docker/containers:/var/lib/docker/containers:ro
       - /var/log:/var/log:ro
     ports:
@@ -692,6 +717,7 @@ services:
 volumes:
   prometheus_data:
   grafana_data:
+  pgadmin_data:
 
 # ---------------- NETWORKS ----------------
 networks:

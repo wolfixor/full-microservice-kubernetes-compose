@@ -44,7 +44,8 @@ kubectl get svc -n task-api | grep task-db
 
 ## Important
 
-Do not run the old `k8s/examples/task-service/postgres-statefulset.yaml` and the new `k8s/platform/data/task-db/base/cluster.yaml` for the same service at the same time.
+Do not create a standalone task PostgreSQL StatefulSet beside the
+CloudNativePG resource in `k8s/platform/data/task-db/base/cluster.yaml`.
 
 Use one database path:
 
